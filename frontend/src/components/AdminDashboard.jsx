@@ -36,7 +36,10 @@ import {
   Save,
   X,
   Camera,
-  Upload
+  Upload,
+  BarChart3,
+  Award,
+  ArrowUpRight
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import TableOrderModal from './TableOrderModal';
@@ -79,6 +82,11 @@ export default function AdminDashboard({ onExit }) {
   const [savingDish, setSavingDish] = useState(false);
   const [quickPriceEditId, setQuickPriceEditId] = useState(null);
   const [quickPriceValue, setQuickPriceValue] = useState('');
+
+  // Estados de Estadísticas Semanales (Apple Analytics)
+  const [statsTimeframe, setStatsTimeframe] = useState('semana'); // 'semana' | 'quincena' | 'mes'
+  const [statsChartMode, setStatsChartMode] = useState('ventas'); // 'ventas' | 'comensales'
+  const [hoveredDay, setHoveredDay] = useState(null);
 
   // Guardar en localStorage
   useEffect(() => {
@@ -649,6 +657,89 @@ export default function AdminDashboard({ onExit }) {
     return matchesSearch && matchesCategory;
   });
 
+  // --- MÉTRICAS Y ESTADÍSTICAS SEMANALES (ESTILO APPLE ANALYTICS) ---
+  const weeklyDailyStats = [
+    { dia: 'Lun', nombre: 'Lunes', ventas: 14200, comensales: 22, porcentaje: 37 },
+    { dia: 'Mar', nombre: 'Martes', ventas: 16800, comensales: 26, porcentaje: 44 },
+    { dia: 'Mié', nombre: 'Miércoles', ventas: 19500, comensales: 31, porcentaje: 51 },
+    { dia: 'Jue', nombre: 'Jueves', ventas: 24600, comensales: 38, porcentaje: 64 },
+    { dia: 'Vie', nombre: 'Viernes', ventas: 34900, comensales: 52, porcentaje: 91 },
+    { dia: 'Sáb', nombre: 'Sábado', ventas: 38450, comensales: 56, porcentaje: 100 },
+    { dia: 'Dom', nombre: 'Domingo', ventas: 20000, comensales: 29, porcentaje: 52 }
+  ];
+
+  const totalWeeklySales = weeklyDailyStats.reduce((acc, d) => acc + d.ventas, 0);
+  const totalWeeklyDiners = weeklyDailyStats.reduce((acc, d) => acc + d.comensales, 0);
+  const avgTicketPerDiner = Math.round(totalWeeklySales / totalWeeklyDiners);
+  const avgTicketPerTable = Math.round(avgTicketPerDiner * 2.3);
+
+  // Top Platillos Más Vendidos y Rentables (El Mejor Platillo)
+  const topDishesStats = [
+    {
+      rank: 1,
+      nombre: 'Pizza Tartufata Porto Brezza',
+      categoria: 'Pizzas Artesanales',
+      precio: 390,
+      unidades: 84,
+      total: 32760,
+      porcentaje: 19.4,
+      badge: '🏆 #1 Más Vendido',
+      imagen_url: '/image copy 4.png'
+    },
+    {
+      rank: 2,
+      nombre: 'Tagliolini al Nero di Seppia & Frutti di Mare',
+      categoria: 'Pastas & Especialidades',
+      precio: 390,
+      unidades: 62,
+      total: 24180,
+      porcentaje: 14.3,
+      badge: '🥈 Top Pasta',
+      imagen_url: '/image copy 2.png'
+    },
+    {
+      rank: 3,
+      nombre: 'Pizza Margherita D.O.P.',
+      categoria: 'Pizzas Artesanales',
+      precio: 290,
+      unidades: 58,
+      total: 16820,
+      porcentaje: 10.0,
+      badge: '🥉 Clásico',
+      imagen_url: '/image copy 3.png'
+    },
+    {
+      rank: 4,
+      nombre: 'Ravioli di Ricotta e Salvia al Burro Fuso',
+      categoria: 'Pastas & Especialidades',
+      precio: 330,
+      unidades: 45,
+      total: 14850,
+      porcentaje: 8.8,
+      badge: 'Especialidad',
+      imagen_url: null
+    },
+    {
+      rank: 5,
+      nombre: 'Tiramisù Tradizionale al Mascarpone',
+      categoria: 'Dolci',
+      precio: 180,
+      unidades: 71,
+      total: 12780,
+      porcentaje: 7.6,
+      badge: 'Postre Estrella',
+      imagen_url: '/Gemini_Generated_Image_78a1e378a1e378a1.jpg'
+    }
+  ];
+
+  // Ventas por Categoría de Carta
+  const categorySalesStats = [
+    { categoria: 'Pizzas Artesanales', total: 70750, porcentaje: 42, color: 'bg-[#0071E3]' },
+    { categoria: 'Pastas & Especialidades', total: 52220, porcentaje: 31, color: 'bg-[#34C759]' },
+    { categoria: 'Vinos & Bebidas', total: 30320, porcentaje: 18, color: 'bg-[#AF52DE]' },
+    { categoria: 'Dolci / Postres', total: 15160, porcentaje: 9, color: 'bg-[#FF9500]' }
+  ];
+
   // PANTALLA DE ACCESO (LOGIN CON PIN - ESTILO APPLE)
   if (!isAuthenticated) {
     return (
@@ -900,6 +991,17 @@ export default function AdminDashboard({ onExit }) {
             )}
           </button>
 
+          <button
+            onClick={() => setActiveTab('estadisticas')}
+            className={`py-2 px-4 rounded-xl text-xs sm:text-sm font-medium transition-all cursor-pointer whitespace-nowrap inline-flex items-center gap-2 ${
+              activeTab === 'estadisticas'
+                ? 'bg-white text-[#1D1D1F] shadow-[0_2px_8px_rgba(0,0,0,0.08)]'
+                : 'text-[#86868B] hover:text-[#1D1D1F] hover:bg-black/[0.02]'
+            }`}
+          >
+            <BarChart3 size={15} className={activeTab === 'estadisticas' ? 'text-[#0071E3]' : ''} />
+            <span>Estadísticas</span>
+          </button>
         </div>
       </div>
 
@@ -1535,6 +1637,457 @@ export default function AdminDashboard({ onExit }) {
                 ))}
               </div>
             )}
+
+          </div>
+        )}
+
+        {/* PESTAÑA 5: ESTADÍSTICAS & RENDIMIENTO SEMANAL (ESTILO APPLE ANALYTICS) */}
+        {activeTab === 'estadisticas' && (
+          <div className="space-y-6">
+
+            {/* Cabecera y Selector de Periodo */}
+            <div className="bg-white rounded-3xl p-5 sm:p-6 border border-black/[0.06] shadow-[0_2px_12px_rgba(0,0,0,0.03)] flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="w-2 h-2 rounded-full bg-[#34C759] animate-pulse"></span>
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-[#86868B]">
+                    Métricas de Operación & Rendimiento
+                  </span>
+                </div>
+                <h2 className="text-xl sm:text-2xl font-bold text-[#1D1D1F] tracking-tight">
+                  Estadísticas Semanales
+                </h2>
+                <p className="text-xs text-[#86868B] mt-0.5">
+                  Afluencia de comensales, facturación consolidada y análisis del mejor platillo
+                </p>
+              </div>
+
+              {/* Selector de Rango Temporal Estilo Apple */}
+              <div className="flex items-center bg-[#F5F5F7] p-1 rounded-2xl border border-black/[0.04]">
+                <button
+                  onClick={() => setStatsTimeframe('semana')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer ${
+                    statsTimeframe === 'semana'
+                      ? 'bg-white text-[#1D1D1F] shadow-xs'
+                      : 'text-[#86868B] hover:text-[#1D1D1F]'
+                  }`}
+                >
+                  Esta Semana
+                </button>
+                <button
+                  onClick={() => setStatsTimeframe('quincena')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer ${
+                    statsTimeframe === 'quincena'
+                      ? 'bg-white text-[#1D1D1F] shadow-xs'
+                      : 'text-[#86868B] hover:text-[#1D1D1F]'
+                  }`}
+                >
+                  Últimos 14 Días
+                </button>
+                <button
+                  onClick={() => setStatsTimeframe('mes')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer ${
+                    statsTimeframe === 'mes'
+                      ? 'bg-white text-[#1D1D1F] shadow-xs'
+                      : 'text-[#86868B] hover:text-[#1D1D1F]'
+                  }`}
+                >
+                  Este Mes
+                </button>
+              </div>
+            </div>
+
+            {/* Tarjetas de Indicadores Principales (KPI Cards Estilo Apple) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              
+              {/* KPI 1: Facturación Total */}
+              <div className="bg-white rounded-3xl p-5 border border-black/[0.06] shadow-[0_2px_12px_rgba(0,0,0,0.03)] hover:shadow-md transition-shadow">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs font-medium text-[#86868B]">Facturación Semanal</span>
+                  <div className="w-8 h-8 rounded-full bg-[#0071E3]/10 text-[#0071E3] flex items-center justify-center">
+                    <DollarSign size={16} />
+                  </div>
+                </div>
+                <div className="text-2xl sm:text-3xl font-bold text-[#1D1D1F] tracking-tight">
+                  ${totalWeeklySales.toLocaleString('es-MX')} <span className="text-xs text-[#86868B] font-normal">MXN</span>
+                </div>
+                <div className="flex items-center gap-1.5 mt-2.5">
+                  <span className="inline-flex items-center text-[11px] font-semibold text-[#34C759] bg-[#34C759]/10 px-1.5 py-0.5 rounded-full">
+                    <ArrowUpRight size={12} className="mr-0.5" /> +14.2%
+                  </span>
+                  <span className="text-[11px] text-[#86868B]">vs. semana anterior</span>
+                </div>
+                <div className="mt-3 pt-3 border-t border-black/[0.04] text-[11px] text-[#86868B] flex justify-between">
+                  <span>Promedio diario:</span>
+                  <span className="font-semibold text-[#1D1D1F]">${Math.round(totalWeeklySales / 7).toLocaleString('es-MX')} MXN</span>
+                </div>
+              </div>
+
+              {/* KPI 2: Total de Comensales */}
+              <div className="bg-white rounded-3xl p-5 border border-black/[0.06] shadow-[0_2px_12px_rgba(0,0,0,0.03)] hover:shadow-md transition-shadow">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs font-medium text-[#86868B]">Comensales que Llegan</span>
+                  <div className="w-8 h-8 rounded-full bg-[#34C759]/10 text-[#34C759] flex items-center justify-center">
+                    <Users size={16} />
+                  </div>
+                </div>
+                <div className="text-2xl sm:text-3xl font-bold text-[#1D1D1F] tracking-tight">
+                  {totalWeeklyDiners} <span className="text-xs text-[#86868B] font-normal">personas</span>
+                </div>
+                <div className="flex items-center gap-1.5 mt-2.5">
+                  <span className="inline-flex items-center text-[11px] font-semibold text-[#34C759] bg-[#34C759]/10 px-1.5 py-0.5 rounded-full">
+                    <ArrowUpRight size={12} className="mr-0.5" /> +8.6%
+                  </span>
+                  <span className="text-[11px] text-[#86868B]">afluencia semanal</span>
+                </div>
+                <div className="mt-3 pt-3 border-t border-black/[0.04] text-[11px] text-[#86868B] flex justify-between">
+                  <span>Pico semanal:</span>
+                  <span className="font-semibold text-[#1D1D1F]">Sábado (56 personas)</span>
+                </div>
+              </div>
+
+              {/* KPI 3: Ticket Promedio */}
+              <div className="bg-white rounded-3xl p-5 border border-black/[0.06] shadow-[0_2px_12px_rgba(0,0,0,0.03)] hover:shadow-md transition-shadow">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs font-medium text-[#86868B]">Ticket Promedio Mesa</span>
+                  <div className="w-8 h-8 rounded-full bg-[#AF52DE]/10 text-[#AF52DE] flex items-center justify-center">
+                    <Receipt size={16} />
+                  </div>
+                </div>
+                <div className="text-2xl sm:text-3xl font-bold text-[#1D1D1F] tracking-tight">
+                  ${avgTicketPerTable.toLocaleString('es-MX')} <span className="text-xs text-[#86868B] font-normal">MXN</span>
+                </div>
+                <div className="flex items-center gap-1.5 mt-2.5">
+                  <span className="inline-flex items-center text-[11px] font-semibold text-[#34C759] bg-[#34C759]/10 px-1.5 py-0.5 rounded-full">
+                    <ArrowUpRight size={12} className="mr-0.5" /> +$110
+                  </span>
+                  <span className="text-[11px] text-[#86868B]">por mesa sentada</span>
+                </div>
+                <div className="mt-3 pt-3 border-t border-black/[0.04] text-[11px] text-[#86868B] flex justify-between">
+                  <span>Por comensal:</span>
+                  <span className="font-semibold text-[#1D1D1F]">${avgTicketPerDiner.toLocaleString('es-MX')} MXN</span>
+                </div>
+              </div>
+
+              {/* KPI 4: El Mejor Platillo */}
+              <div className="bg-white rounded-3xl p-5 border border-black/[0.06] shadow-[0_2px_12px_rgba(0,0,0,0.03)] hover:shadow-md transition-shadow relative overflow-hidden">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs font-medium text-[#86868B]">Platillo Más Vendido</span>
+                  <div className="w-8 h-8 rounded-full bg-[#FF9500]/10 text-[#FF9500] flex items-center justify-center">
+                    <Award size={16} />
+                  </div>
+                </div>
+                <div className="text-lg font-bold text-[#1D1D1F] tracking-tight truncate" title={topDishesStats[0]?.nombre}>
+                  {topDishesStats[0]?.nombre}
+                </div>
+                <div className="flex items-center gap-1.5 mt-2.5">
+                  <span className="inline-flex items-center text-[11px] font-semibold text-[#FF9500] bg-[#FF9500]/10 px-1.5 py-0.5 rounded-full">
+                    {topDishesStats[0]?.unidades} pedidos
+                  </span>
+                  <span className="text-[11px] font-bold text-[#1D1D1F]">
+                    ${topDishesStats[0]?.total.toLocaleString('es-MX')} MXN
+                  </span>
+                </div>
+                <div className="mt-3 pt-3 border-t border-black/[0.04] text-[11px] text-[#86868B] flex justify-between">
+                  <span>Aporte a facturación:</span>
+                  <span className="font-semibold text-[#0071E3]">{topDishesStats[0]?.porcentaje}% del total</span>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Gráfica Semanal Interactiva (Estilo Apple Stocks & Health) */}
+            <div className="bg-white rounded-3xl p-6 border border-black/[0.06] shadow-[0_2px_12px_rgba(0,0,0,0.03)]">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+                <div>
+                  <h3 className="text-base font-semibold text-[#1D1D1F] tracking-tight">
+                    {statsChartMode === 'ventas' ? 'Facturación Diaria (Lunes a Domingo)' : 'Comensales que Llegaron por Día'}
+                  </h3>
+                  <p className="text-xs text-[#86868B] mt-0.5">
+                    Pasa el cursor sobre cualquier barra para consultar el desglose exacto
+                  </p>
+                </div>
+
+                {/* Alternador de Modo de Gráfica */}
+                <div className="flex items-center bg-[#F5F5F7] p-1 rounded-2xl border border-black/[0.04]">
+                  <button
+                    onClick={() => setStatsChartMode('ventas')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer ${
+                      statsChartMode === 'ventas'
+                        ? 'bg-white text-[#1D1D1F] shadow-xs'
+                        : 'text-[#86868B] hover:text-[#1D1D1F]'
+                    }`}
+                  >
+                    Ventas ($ MXN)
+                  </button>
+                  <button
+                    onClick={() => setStatsChartMode('comensales')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer ${
+                      statsChartMode === 'comensales'
+                        ? 'bg-white text-[#1D1D1F] shadow-xs'
+                        : 'text-[#86868B] hover:text-[#1D1D1F]'
+                    }`}
+                  >
+                    Comensales (Personas)
+                  </button>
+                </div>
+              </div>
+
+              {/* Barras de la Gráfica */}
+              <div className="grid grid-cols-7 gap-2 sm:gap-4 items-end h-56 pt-8 pb-2 border-b border-black/[0.06]">
+                {weeklyDailyStats.map((item) => {
+                  const maxVentas = 38450;
+                  const maxComensales = 56;
+                  const heightPercent = statsChartMode === 'ventas'
+                    ? Math.round((item.ventas / maxVentas) * 100)
+                    : Math.round((item.comensales / maxComensales) * 100);
+
+                  const isHovered = hoveredDay === item.dia;
+                  const isTopDay = item.dia === 'Sáb';
+
+                  return (
+                    <div
+                      key={item.dia}
+                      onMouseEnter={() => setHoveredDay(item.dia)}
+                      onMouseLeave={() => setHoveredDay(null)}
+                      className="flex flex-col items-center h-full justify-end group cursor-pointer relative"
+                    >
+                      {/* Tooltip flotante estilo iOS */}
+                      {isHovered && (
+                        <div className="absolute -top-12 z-20 bg-[#1D1D1F] text-white px-2.5 py-1.5 rounded-xl text-[10px] whitespace-nowrap shadow-lg animate-in fade-in zoom-in-95 pointer-events-none">
+                          <div className="font-semibold">{item.nombre}</div>
+                          <div className="text-white/80">
+                            ${item.ventas.toLocaleString('es-MX')} MXN • {item.comensales} personas
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Barra animada con borde Apple */}
+                      <div className="w-full max-w-[48px] bg-[#F5F5F7] rounded-2xl h-full flex items-end p-1 transition-all group-hover:bg-[#E8E8ED]">
+                        <div
+                          style={{ height: `${heightPercent}%` }}
+                          className={`w-full rounded-xl transition-all duration-500 ${
+                            isTopDay
+                              ? 'bg-gradient-to-t from-[#0071E3] to-[#409CFF] shadow-[0_4px_12px_rgba(0,113,227,0.3)]'
+                              : 'bg-[#1D1D1F] group-hover:bg-[#0071E3]'
+                          }`}
+                        ></div>
+                      </div>
+
+                      {/* Valor rápido en mobile/desktop */}
+                      <span className="text-[10px] text-[#86868B] font-medium mt-2">
+                        {statsChartMode === 'ventas' ? `$${Math.round(item.ventas / 1000)}k` : item.comensales}
+                      </span>
+                      <span className={`text-xs font-semibold mt-0.5 ${isHovered ? 'text-[#0071E3]' : 'text-[#1D1D1F]'}`}>
+                        {item.dia}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Pie de gráfica con resumen */}
+              <div className="mt-4 flex flex-col sm:flex-row items-center justify-between text-xs text-[#86868B] gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="w-3 h-3 rounded-full bg-gradient-to-tr from-[#0071E3] to-[#409CFF]"></span>
+                  <span>Día con mayor afluencia y recaudación: <strong className="text-[#1D1D1F]">Sábado ($38,450 MXN / 56 comensales)</strong></span>
+                </div>
+                <div>
+                  Promedio de ocupación en sala: <strong className="text-[#34C759]">78.4%</strong>
+                </div>
+              </div>
+            </div>
+
+            {/* SECCIÓN INFERIOR: RANKING DEL MEJOR PLATILLO Y CATEGORÍAS */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+              {/* Ranking de Platillos Más Vendidos (2 Columnas) */}
+              <div className="lg:col-span-2 bg-white rounded-3xl p-6 border border-black/[0.06] shadow-[0_2px_12px_rgba(0,0,0,0.03)]">
+                <div className="flex items-center justify-between mb-5">
+                  <div>
+                    <h3 className="text-base font-semibold text-[#1D1D1F] tracking-tight">
+                      Ranking de Platillos: Los Más Vendidos
+                    </h3>
+                    <p className="text-xs text-[#86868B] mt-0.5">
+                      Rendimiento de los platillos estrellas con mayor rotación en la semana
+                    </p>
+                  </div>
+                  <span className="text-[11px] font-semibold text-[#0071E3] bg-[#0071E3]/10 px-2.5 py-1 rounded-full">
+                    Top 5 de Carta
+                  </span>
+                </div>
+
+                <div className="space-y-3.5">
+                  {topDishesStats.map((dish) => (
+                    <div
+                      key={dish.rank}
+                      className="p-3.5 rounded-2xl bg-[#F5F5F7]/70 hover:bg-[#F5F5F7] border border-black/[0.03] transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3.5"
+                    >
+                      {/* Rank e Imagen */}
+                      <div className="flex items-center gap-3 w-full sm:w-auto">
+                        <div className={`w-7 h-7 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 ${
+                          dish.rank === 1
+                            ? 'bg-[#FF9500] text-white shadow-xs'
+                            : dish.rank === 2
+                            ? 'bg-[#8E8E93] text-white'
+                            : dish.rank === 3
+                            ? 'bg-[#C67D38] text-white'
+                            : 'bg-black/5 text-[#86868B]'
+                        }`}>
+                          {dish.rank}
+                        </div>
+
+                        {dish.imagen_url ? (
+                          <img
+                            src={dish.imagen_url}
+                            alt={dish.nombre}
+                            className="w-11 h-11 rounded-xl object-cover border border-black/5 shrink-0 shadow-xs"
+                          />
+                        ) : (
+                          <div className="w-11 h-11 rounded-xl bg-black/5 flex items-center justify-center text-[#86868B] shrink-0">
+                            <Utensils size={16} />
+                          </div>
+                        )}
+
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <h4 className="text-xs sm:text-sm font-semibold text-[#1D1D1F] truncate">
+                              {dish.nombre}
+                            </h4>
+                            {dish.rank === 1 && (
+                              <span className="bg-[#FF9500]/15 text-[#D97706] text-[10px] font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap">
+                                🏆 El Mejor
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-[11px] text-[#86868B]">
+                            {dish.categoria} • ${dish.precio} MXN
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Ventas y Barra de Desempeño */}
+                      <div className="flex items-center justify-between sm:justify-end gap-5 w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-0 border-black/5">
+                        <div className="text-left sm:text-right">
+                          <div className="text-xs font-bold text-[#1D1D1F]">
+                            {dish.unidades} unidades
+                          </div>
+                          <div className="text-[11px] text-[#86868B]">
+                            ${dish.total.toLocaleString('es-MX')} MXN
+                          </div>
+                        </div>
+
+                        <div className="w-24 text-right">
+                          <div className="text-[10px] font-semibold text-[#0071E3] mb-1">
+                            {dish.porcentaje}% ventas
+                          </div>
+                          <div className="w-full bg-black/5 h-2 rounded-full overflow-hidden">
+                            <div
+                              style={{ width: `${dish.porcentaje * 4}%` }}
+                              className={`h-full rounded-full ${
+                                dish.rank === 1 ? 'bg-[#FF9500]' : 'bg-[#0071E3]'
+                              }`}
+                            ></div>
+                          </div>
+                        </div>
+                      </div>
+
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Ventas por Categoría y Horarios de Llegada (1 Columna) */}
+              <div className="space-y-6">
+
+                {/* Desglose por Categoría */}
+                <div className="bg-white rounded-3xl p-6 border border-black/[0.06] shadow-[0_2px_12px_rgba(0,0,0,0.03)]">
+                  <h3 className="text-base font-semibold text-[#1D1D1F] tracking-tight mb-1">
+                    Ventas por Categoría
+                  </h3>
+                  <p className="text-xs text-[#86868B] mb-4">
+                    Distribución de ingresos en la carta
+                  </p>
+
+                  <div className="space-y-3.5">
+                    {categorySalesStats.map((cat) => (
+                      <div key={cat.categoria} className="space-y-1">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-medium text-[#1D1D1F]">{cat.categoria}</span>
+                          <span className="font-semibold text-[#1D1D1F]">
+                            ${cat.total.toLocaleString('es-MX')} <span className="text-[#86868B] font-normal">({cat.porcentaje}%)</span>
+                          </span>
+                        </div>
+                        <div className="w-full bg-[#F5F5F7] h-2 rounded-full overflow-hidden">
+                          <div
+                            style={{ width: `${cat.porcentaje}%` }}
+                            className={`h-full rounded-full ${cat.color}`}
+                          ></div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Horarios Pico de Llegada */}
+                <div className="bg-white rounded-3xl p-6 border border-black/[0.06] shadow-[0_2px_12px_rgba(0,0,0,0.03)]">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Clock size={16} className="text-[#0071E3]" />
+                    <h3 className="text-base font-semibold text-[#1D1D1F] tracking-tight">
+                      Horarios Más Concurridos
+                    </h3>
+                  </div>
+                  <p className="text-xs text-[#86868B] mb-4">
+                    Momento en que más personas ingresan al restaurante
+                  </p>
+
+                  <div className="space-y-3">
+                    <div className="p-3 rounded-2xl bg-[#F5F5F7] flex items-center justify-between">
+                      <div>
+                        <div className="text-xs font-semibold text-[#1D1D1F]">
+                          Primer Turno Cena (19:30 - 21:30)
+                        </div>
+                        <span className="text-[11px] text-[#86868B]">Horario de mayor demanda</span>
+                      </div>
+                      <span className="text-xs font-bold text-[#0071E3] bg-[#0071E3]/10 px-2 py-0.5 rounded-full">
+                        44% afluencia
+                      </span>
+                    </div>
+
+                    <div className="p-3 rounded-2xl bg-[#F5F5F7] flex items-center justify-between">
+                      <div>
+                        <div className="text-xs font-semibold text-[#1D1D1F]">
+                          Segundo Turno Cena (21:30 - 23:30)
+                        </div>
+                        <span className="text-[11px] text-[#86868B]">Sobremesas y coctelería</span>
+                      </div>
+                      <span className="text-xs font-bold text-[#1D1D1F] bg-black/5 px-2 py-0.5 rounded-full">
+                        28% afluencia
+                      </span>
+                    </div>
+
+                    <div className="p-3 rounded-2xl bg-[#F5F5F7] flex items-center justify-between">
+                      <div>
+                        <div className="text-xs font-semibold text-[#1D1D1F]">
+                          Almuerzos & Tardes (13:30 - 16:30)
+                        </div>
+                        <span className="text-[11px] text-[#86868B]">Terraza y comida casual</span>
+                      </div>
+                      <span className="text-xs font-bold text-[#1D1D1F] bg-black/5 px-2 py-0.5 rounded-full">
+                        28% afluencia
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 pt-3 border-t border-black/[0.04] text-[11px] text-[#86868B] flex items-center justify-between">
+                    <span>Tiempo promedio en mesa:</span>
+                    <span className="font-semibold text-[#1D1D1F]">1h 45 min</span>
+                  </div>
+                </div>
+
+              </div>
+
+            </div>
 
           </div>
         )}
