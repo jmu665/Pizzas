@@ -30,7 +30,11 @@ import {
   Percent,
   Check,
   DollarSign,
-  Coffee
+  Coffee,
+  Edit3,
+  Trash2,
+  Save,
+  X
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import TableOrderModal from './TableOrderModal';
@@ -74,6 +78,14 @@ export default function AdminDashboard({ onExit }) {
 
   // Total de ventas cobradas REALES en el turno (Corte real)
   const [shiftSales, setShiftSales] = useState(0);
+
+  // Gestor de Carta y Modificación de Precios
+  const [editingDish, setEditingDish] = useState(null); // null o el objeto platillo a editar/crear
+  const [menuSearchTerm, setMenuSearchTerm] = useState('');
+  const [menuCategoryFilter, setMenuCategoryFilter] = useState('TODAS');
+  const [savingDish, setSavingDish] = useState(false);
+  const [quickPriceEditId, setQuickPriceEditId] = useState(null);
+  const [quickPriceValue, setQuickPriceValue] = useState('');
 
   // Guardar en localStorage
   useEffect(() => {
@@ -446,6 +458,115 @@ export default function AdminDashboard({ onExit }) {
     }
   };
 
+  // Guardar platillo (crear o editar existente con precio)
+  const handleSaveDish = async (e) => {
+    e.preventDefault();
+    if (!editingDish || !editingDish.nombre || editingDish.precio === undefined || editingDish.precio === '') return;
+    setSavingDish(true);
+
+    try {
+      const priceNum = parseFloat(editingDish.precio);
+
+      if (editingDish.id && !editingDish.isNew) {
+        // Actualizar platillo existente en Supabase
+        const { error } = await supabase
+          .from('menu_items')
+          .update({
+            nombre: editingDish.nombre,
+            precio: priceNum,
+            categoria: editingDish.categoria || 'Pizzas Artesanales',
+            descripcion: editingDish.descripcion || '',
+            disponible: editingDish.disponible !== false
+          })
+          .eq('id', editingDish.id);
+
+        if (!error) {
+          setMenuItems(prev => prev.map(item => 
+            item.id === editingDish.id 
+              ? { ...item, ...editingDish, precio: priceNum } 
+              : item
+          ));
+          setEditingDish(null);
+        } else {
+          alert('Error al guardar platillo en base de datos: ' + error.message);
+        }
+      } else {
+        // Crear nuevo platillo en Supabase
+        const { data, error } = await supabase
+          .from('menu_items')
+          .insert([{
+            restaurante_id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
+            nombre: editingDish.nombre,
+            precio: priceNum,
+            categoria: editingDish.categoria || 'Pizzas Artesanales',
+            descripcion: editingDish.descripcion || '',
+            disponible: true
+          }])
+          .select();
+
+        if (!error && data && data.length > 0) {
+          setMenuItems(prev => [...prev, data[0]]);
+          setEditingDish(null);
+        } else if (error) {
+          alert('Error al crear platillo: ' + error.message);
+        }
+      }
+    } catch (err) {
+      console.error('Error al guardar platillo:', err);
+      alert('Error inesperado al guardar platillo.');
+    } finally {
+      setSavingDish(false);
+    }
+  };
+
+  // Edición rápida de precio directo desde la tarjeta
+  const handleQuickPriceSave = async (id) => {
+    const newPrice = parseFloat(quickPriceValue);
+    if (isNaN(newPrice) || newPrice < 0) {
+      setQuickPriceEditId(null);
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('menu_items')
+        .update({ precio: newPrice })
+        .eq('id', id);
+
+      if (!error) {
+        setMenuItems(prev => prev.map(item => 
+          item.id === id ? { ...item, precio: newPrice } : item
+        ));
+      } else {
+        alert('Error al actualizar precio: ' + error.message);
+      }
+    } catch (err) {
+      console.error('Error al actualizar precio:', err);
+    } finally {
+      setQuickPriceEditId(null);
+    }
+  };
+
+  // Eliminar platillo de la carta
+  const handleDeleteDish = async (id, nombre) => {
+    if (!window.confirm(`¿Está seguro de eliminar "${nombre}" de la carta permanentemente?`)) return;
+
+    try {
+      const { error } = await supabase
+        .from('menu_items')
+        .delete()
+        .eq('id', id);
+
+      if (!error) {
+        setMenuItems(prev => prev.filter(item => item.id !== id));
+      } else {
+        alert('Error al eliminar platillo: ' + error.message);
+      }
+    } catch (err) {
+      console.error('Error al eliminar:', err);
+    }
+  };
+
   // Ajustar stock crítico (+ / -)
   const handleAdjustStock = (id, delta) => {
     setCriticalStock(prev => prev.map(item => {
@@ -489,6 +610,19 @@ export default function AdminDashboard({ onExit }) {
       r.telefono_cliente?.includes(searchTerm) ||
       r.codigo_reserva?.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesDate && matchesStatus && matchesSearch;
+  });
+
+  // Filtrado de Platillos en el Gestor de Carta
+  const filteredMenuItems = menuItems.filter(item => {
+    const matchesSearch = menuSearchTerm.trim() === '' ? true :
+      item.nombre?.toLowerCase().includes(menuSearchTerm.toLowerCase()) ||
+      item.descripcion?.toLowerCase().includes(menuSearchTerm.toLowerCase()) ||
+      item.categoria?.toLowerCase().includes(menuSearchTerm.toLowerCase());
+
+    const matchesCategory = menuCategoryFilter === 'TODAS' ? true :
+      item.categoria && item.categoria.toLowerCase().includes(menuCategoryFilter.toLowerCase());
+
+    return matchesSearch && matchesCategory;
   });
 
   // PANTALLA DE ACCESO (LOGIN CON PIN)
@@ -1174,65 +1308,203 @@ export default function AdminDashboard({ onExit }) {
               </div>
             </div>
 
-            {/* Disponibilidad de Platillos de la Carta */}
-            <div>
-              <div className="mb-4">
-                <h3 className="font-serif-luxury text-2xl font-semibold text-[#1C1816] mb-1">
-                  Disponibilidad de Platillos en la Carta Web
-                </h3>
-                <p className="text-xs text-[#6B635E] leading-relaxed font-light">
-                  Active o desactive platillos de la carta web y la IA con un toque.
-                </p>
+            {/* Gestor de Carta & Modificación de Precios */}
+            <div className="space-y-6">
+              
+              {/* Cabecera del Gestor con Acción para Agregar Platillo */}
+              <div className="bg-white p-5 sm:p-6 border border-[#E3D8C5] shadow-xs rounded-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Utensils className="text-[#6E1B24]" size={20} />
+                    <h3 className="font-serif-luxury text-2xl font-bold text-[#1C1816]">
+                      Gestor de Carta & Modificación de Precios
+                    </h3>
+                  </div>
+                  <p className="text-xs text-[#6B635E] mt-1 font-light max-w-xl">
+                    Edite precios, descripciones y disponibilidad de platillos en tiempo real. Los cambios se sincronizan al instante en la carta web y con el Concierge de IA.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2.5 w-full sm:w-auto">
+                  <button
+                    onClick={() => setEditingDish({
+                      isNew: true,
+                      nombre: '',
+                      precio: '',
+                      categoria: 'Pizzas Artesanales',
+                      descripcion: '',
+                      disponible: true
+                    })}
+                    className="w-full sm:w-auto px-4 py-2.5 bg-[#6E1B24] hover:bg-[#58131B] text-white text-xs uppercase tracking-wider font-bold rounded-xs transition-colors cursor-pointer shadow-sm flex items-center justify-center gap-2"
+                  >
+                    <Plus size={14} /> Nuevo Platillo
+                  </button>
+                </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {menuItems.map((item) => (
-                  <div
-                    key={item.id}
-                    className={`p-5 rounded-xs border transition-all ${
-                      item.disponible
-                        ? 'bg-white border-[#E0D8C8] shadow-xs'
-                        : 'bg-[#F4EFE6] border-[#D0C6B4] opacity-65'
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-3 mb-2">
+              {/* Barra de Filtros por Categoría y Búsqueda */}
+              <div className="bg-[#FAF7F2] p-4 border border-[#E0D8C8] rounded-xs flex flex-col md:flex-row items-center justify-between gap-3">
+                {/* Categorías */}
+                <div className="flex flex-wrap items-center gap-1.5 w-full md:w-auto text-xs">
+                  {['TODAS', 'Pizzas Artesanales', 'Pastas & Especialidades', 'Focaccias', 'Dolci', 'Bebidas & Vinos'].map(cat => (
+                    <button
+                      key={cat}
+                      onClick={() => setMenuCategoryFilter(cat)}
+                      className={`px-3 py-1.5 rounded-xs uppercase tracking-wider font-semibold transition-colors cursor-pointer text-[11px] ${
+                        menuCategoryFilter === cat
+                          ? 'bg-[#1A382B] text-white shadow-xs'
+                          : 'bg-white text-[#524943] hover:bg-[#F2ECE1] border border-[#DDD5C7]'
+                      }`}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Buscador */}
+                <div className="w-full md:w-72 relative">
+                  <Search size={14} className="absolute left-3 top-2.5 text-[#8A8077]" />
+                  <input
+                    type="text"
+                    placeholder="Buscar platillo o ingrediente..."
+                    value={menuSearchTerm}
+                    onChange={(e) => setMenuSearchTerm(e.target.value)}
+                    className="w-full pl-8 pr-3 py-2 text-xs bg-white border border-[#DDD5C7] rounded-xs focus:outline-none focus:border-[#6E1B24]"
+                  />
+                  {menuSearchTerm && (
+                    <button
+                      onClick={() => setMenuSearchTerm('')}
+                      className="absolute right-2.5 top-2.5 text-[#8A8077] hover:text-black text-xs"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Grid de Platillos de la Carta */}
+              {filteredMenuItems.length === 0 ? (
+                <div className="text-center py-16 bg-white border border-[#E3DBD0] rounded-xs text-[#7A7067]">
+                  <Utensils size={32} className="mx-auto mb-2 opacity-30 text-[#6E1B24]" />
+                  <p className="text-sm font-semibold">No se encontraron platillos con los filtros actuales.</p>
+                  <p className="text-xs text-[#8A8077] mt-1">Pruebe limpiando el buscador o cambiando de categoría.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {filteredMenuItems.map((item) => (
+                    <div
+                      key={item.id}
+                      className={`p-5 rounded-xs border transition-all flex flex-col justify-between ${
+                        item.disponible
+                          ? 'bg-white border-[#E0D8C8] shadow-xs hover:border-[#B88E3E]/60'
+                          : 'bg-[#F4EFE6] border-[#D0C6B4] opacity-75'
+                      }`}
+                    >
                       <div>
-                        <span className="text-[9px] uppercase tracking-widest text-[#B88E3E] font-semibold block">
-                          {item.categoria}
-                        </span>
-                        <h4 className="font-serif-luxury text-lg font-bold text-[#1C1816] mt-0.5">
-                          {item.nombre}
-                        </h4>
+                        <div className="flex items-start justify-between gap-3 mb-2">
+                          <div className="flex-1 min-w-0">
+                            <span className="text-[9px] uppercase tracking-widest text-[#B88E3E] font-semibold block truncate">
+                              {item.categoria}
+                            </span>
+                            <h4 className="font-serif-luxury text-lg font-bold text-[#1C1816] mt-0.5 truncate leading-snug">
+                              {item.nombre}
+                            </h4>
+                          </div>
+
+                          {/* Caja de Precio con Edición Rápida */}
+                          <div className="shrink-0 text-right">
+                            {quickPriceEditId === item.id ? (
+                              <div className="flex items-center gap-1 bg-[#FAF7F2] p-1 border-2 border-[#6E1B24] rounded-xs shadow-sm">
+                                <span className="text-xs text-[#7A7067] font-bold">$</span>
+                                <input
+                                  type="number"
+                                  step="1"
+                                  min="0"
+                                  value={quickPriceValue}
+                                  onChange={(e) => setQuickPriceValue(e.target.value)}
+                                  className="w-16 px-1 py-0.5 text-xs font-mono font-bold bg-white border border-[#DDD5C7] rounded-xs focus:outline-none"
+                                  autoFocus
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') handleQuickPriceSave(item.id);
+                                    if (e.key === 'Escape') setQuickPriceEditId(null);
+                                  }}
+                                />
+                                <button
+                                  onClick={() => handleQuickPriceSave(item.id)}
+                                  className="p-1 bg-[#1A382B] text-white hover:bg-[#122A20] rounded-xs cursor-pointer"
+                                  title="Guardar precio"
+                                >
+                                  <Check size={12} />
+                                </button>
+                                <button
+                                  onClick={() => setQuickPriceEditId(null)}
+                                  className="p-1 text-[#7A7067] hover:text-black cursor-pointer"
+                                  title="Cancelar"
+                                >
+                                  <X size={12} />
+                                </button>
+                              </div>
+                            ) : (
+                              <div
+                                onClick={() => {
+                                  setQuickPriceEditId(item.id);
+                                  setQuickPriceValue(item.precio);
+                                }}
+                                className="group/price cursor-pointer flex items-center gap-1.5 px-2.5 py-1 rounded-xs bg-[#FAF7F2] hover:bg-[#F2ECE1] border border-dashed border-[#D8CFBF] hover:border-[#6E1B24] transition-all"
+                                title="Clic para modificar precio rápidamente"
+                              >
+                                <span className="font-serif-luxury font-bold text-lg text-[#6E1B24]">
+                                  ${Number(item.precio).toFixed(2)}
+                                </span>
+                                <Edit3 size={11} className="text-[#8A8077] opacity-60 group-hover/price:opacity-100 transition-opacity" />
+                              </div>
+                            )}
+                            <span className="text-[9px] uppercase tracking-wider text-[#8A8077] block mt-0.5">MXN</span>
+                          </div>
+                        </div>
+
+                        <p className="text-xs text-[#6B635E] italic font-light mb-4 line-clamp-2 leading-relaxed">
+                          {item.descripcion || 'Sin descripción culinaria.'}
+                        </p>
                       </div>
 
-                      <span className="font-serif-luxury font-bold text-base text-[#6E1B24]">
-                        ${Number(item.precio).toFixed(2)}
-                      </span>
+                      {/* Pie de la tarjeta con acciones */}
+                      <div className="pt-3 border-t border-[#EAE3D6] flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className={`text-[10px] font-semibold uppercase tracking-wider ${item.disponible ? 'text-[#3E7D5C]' : 'text-[#EF4444]'}`}>
+                            {item.disponible ? '● En Carta' : '○ Pausado'}
+                          </span>
+                          <button
+                            onClick={() => handleToggleDishAvailability(item.id, item.disponible)}
+                            className="text-[10px] text-[#8A8077] hover:text-[#1C1816] underline cursor-pointer"
+                          >
+                            {item.disponible ? 'Agotar' : 'Activar'}
+                          </button>
+                        </div>
+
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => setEditingDish({ ...item, isNew: false })}
+                            className="px-2.5 py-1 text-xs font-semibold bg-[#1A382B] text-white hover:bg-[#122A20] rounded-xs transition-colors cursor-pointer flex items-center gap-1 shadow-xs"
+                            title="Editar nombre, precio, categoría y descripción"
+                          >
+                            <Edit3 size={11} /> Modificar
+                          </button>
+
+                          <button
+                            onClick={() => handleDeleteDish(item.id, item.nombre)}
+                            className="p-1 text-[#EF4444] hover:bg-red-50 rounded-xs transition-colors cursor-pointer border border-transparent hover:border-red-200"
+                            title="Eliminar de la carta"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      </div>
                     </div>
+                  ))}
+                </div>
+              )}
 
-                    <p className="text-xs text-[#6B635E] italic font-light mb-4 line-clamp-2">
-                      {item.descripcion}
-                    </p>
-
-                    <div className="pt-3 border-t border-[#EAE3D6] flex items-center justify-between">
-                      <span className={`text-[11px] font-semibold uppercase tracking-wider ${item.disponible ? 'text-[#3E7D5C]' : 'text-[#EF4444]'}`}>
-                        {item.disponible ? '● En Carta' : '○ Agotado'}
-                      </span>
-
-                      <button
-                        onClick={() => handleToggleDishAvailability(item.id, item.disponible)}
-                        className={`px-3 py-1.5 text-xs font-semibold uppercase tracking-wider rounded-xs transition-colors cursor-pointer ${
-                          item.disponible
-                            ? 'bg-[#EF4444]/10 text-[#EF4444] hover:bg-[#EF4444]/20 border border-[#EF4444]/30'
-                            : 'bg-[#3E7D5C] text-white hover:bg-[#2A5740]'
-                        }`}
-                      >
-                        {item.disponible ? 'Marcar Agotado' : 'Reactivar'}
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
             </div>
 
           </div>
@@ -1327,6 +1599,142 @@ export default function AdminDashboard({ onExit }) {
                   className="px-4 py-2 bg-[#1A382B] hover:bg-[#122A20] text-white text-xs uppercase tracking-wider font-bold rounded-xs cursor-pointer shadow-xs"
                 >
                   Guardar Mesa en DB
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE EDICIÓN O CREACIÓN DE PLATILLO Y PRECIO */}
+      {editingDish && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-[#FAF7F2] w-full max-w-lg rounded-sm shadow-2xl border border-[#D8CFC2] overflow-hidden flex flex-col animate-in fade-in zoom-in-95">
+            
+            {/* Header del Modal */}
+            <div className="bg-[#1C1613] text-white px-5 py-4 flex items-center justify-between border-b border-[#3A2E28]">
+              <div className="flex items-center gap-2.5">
+                <Utensils size={18} className="text-[#D4B26F]" />
+                <div>
+                  <h3 className="font-serif-luxury text-lg font-bold tracking-wide">
+                    {editingDish.isNew ? 'Registrar Nuevo Platillo en Carta' : 'Modificar Platillo & Precio'}
+                  </h3>
+                  <p className="text-[10px] text-[#A69B8F] uppercase tracking-wider">
+                    {editingDish.isNew ? 'Nuevo item culinario' : `Editando: ${editingDish.nombre}`}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setEditingDish(null)}
+                className="p-1.5 text-[#A69B8F] hover:text-white rounded-xs cursor-pointer"
+                title="Cerrar"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Formulario */}
+            <form onSubmit={handleSaveDish} className="p-5 sm:p-6 space-y-4">
+              {/* Nombre */}
+              <div>
+                <label className="block text-[11px] uppercase tracking-wider font-bold text-[#5E554E] mb-1">
+                  Nombre del Platillo *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ej. Pizza Quattro Formaggi D.O.P."
+                  value={editingDish.nombre || ''}
+                  onChange={(e) => setEditingDish({ ...editingDish, nombre: e.target.value })}
+                  className="w-full px-3.5 py-2 text-xs bg-white border border-[#DDD5C7] rounded-xs focus:outline-none focus:border-[#6E1B24] font-medium"
+                />
+              </div>
+
+              {/* Precio y Categoría */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[11px] uppercase tracking-wider font-bold text-[#6E1B24] mb-1 flex items-center gap-1">
+                    <DollarSign size={13} className="text-[#6E1B24]" /> Precio de Venta (MXN) *
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-2 text-xs font-bold text-[#7A7067]">$</span>
+                    <input
+                      type="number"
+                      step="0.5"
+                      min="0"
+                      required
+                      placeholder="340.00"
+                      value={editingDish.precio !== undefined ? editingDish.precio : ''}
+                      onChange={(e) => setEditingDish({ ...editingDish, precio: e.target.value })}
+                      className="w-full pl-7 pr-3.5 py-2 text-sm font-mono font-bold bg-white border-2 border-[#D8CFBF] focus:border-[#6E1B24] rounded-xs focus:outline-none text-[#1C1816]"
+                    />
+                  </div>
+                  <span className="text-[9px] text-[#7A7067] mt-0.5 block">Sincronizado con carta web e IA</span>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] uppercase tracking-wider font-bold text-[#5E554E] mb-1">
+                    Categoría *
+                  </label>
+                  <select
+                    value={editingDish.categoria || 'Pizzas Artesanales'}
+                    onChange={(e) => setEditingDish({ ...editingDish, categoria: e.target.value })}
+                    className="w-full px-3.5 py-2 text-xs bg-white border border-[#DDD5C7] rounded-xs focus:outline-none focus:border-[#6E1B24] cursor-pointer"
+                  >
+                    <option value="Pizzas Artesanales">Pizzas Artesanales</option>
+                    <option value="Pastas & Especialidades">Pastas & Especialidades</option>
+                    <option value="Focaccias">Focaccias</option>
+                    <option value="Dolci">Dolci / Postres</option>
+                    <option value="Bebidas & Vinos">Bebidas & Vinos</option>
+                    <option value="Entradas">Entradas</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Descripción e Ingredientes */}
+              <div>
+                <label className="block text-[11px] uppercase tracking-wider font-bold text-[#5E554E] mb-1">
+                  Descripción culinaria e Ingredientes
+                </label>
+                <textarea
+                  rows="3"
+                  placeholder="Detalle de ingredientes, tiempo de fermentación, preparación al horno de leña..."
+                  value={editingDish.descripcion || ''}
+                  onChange={(e) => setEditingDish({ ...editingDish, descripcion: e.target.value })}
+                  className="w-full px-3.5 py-2 text-xs bg-white border border-[#DDD5C7] rounded-xs focus:outline-none focus:border-[#6E1B24] leading-relaxed"
+                ></textarea>
+              </div>
+
+              {/* Disponibilidad */}
+              <div className="flex items-center gap-2 pt-1 bg-[#FAF7F2] p-2.5 border border-[#E8DFCFC0] rounded-xs">
+                <input
+                  type="checkbox"
+                  id="disponibleCheck"
+                  checked={editingDish.disponible !== false}
+                  onChange={(e) => setEditingDish({ ...editingDish, disponible: e.target.checked })}
+                  className="w-4 h-4 text-[#1A382B] rounded-xs cursor-pointer accent-[#1A382B]"
+                />
+                <label htmlFor="disponibleCheck" className="text-xs text-[#2C2623] cursor-pointer font-medium select-none">
+                  Disponible de inmediato en la carta web y comandero POS de mesas
+                </label>
+              </div>
+
+              {/* Acciones */}
+              <div className="pt-4 border-t border-[#EAE3D6] flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setEditingDish(null)}
+                  className="px-4 py-2 text-xs uppercase tracking-wider font-semibold text-[#6B635E] hover:bg-[#F2ECE1] rounded-xs transition-colors cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingDish}
+                  className="px-5 py-2 text-xs uppercase tracking-wider font-bold bg-[#6E1B24] hover:bg-[#58131B] text-white rounded-xs transition-colors cursor-pointer shadow-sm flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  <Save size={13} />
+                  {savingDish ? 'Guardando...' : 'Guardar Platillo & Precio'}
                 </button>
               </div>
             </form>
