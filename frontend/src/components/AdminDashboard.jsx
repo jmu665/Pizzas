@@ -724,11 +724,6 @@ export default function AdminDashboard({ onExit }) {
       dayMap[0], // Dom
     ];
 
-    let peakDay = weeklyDailyStats[0];
-    weeklyDailyStats.forEach(d => {
-      if (d.ventas > peakDay.ventas) peakDay = d;
-    });
-
     const maxDaySales = Math.max(...weeklyDailyStats.map(d => d.ventas), 1);
     const maxDayDiners = Math.max(...weeklyDailyStats.map(d => d.comensales), 1);
 
@@ -840,7 +835,20 @@ export default function AdminDashboard({ onExit }) {
       dinner2Pct: Math.round((dinner2Count / totalHoursDiners) * 100),
     };
 
-    const mostCrowdedShift = peakHours.dinner1Pct >= peakHours.dinner2Pct && peakHours.dinner1Pct >= peakHours.lunchPct
+    const hasOrders = activeOrders.length > 0;
+
+    let peakDay = null;
+    if (hasOrders) {
+      weeklyDailyStats.forEach(d => {
+        if (d.ventas > 0 && (!peakDay || d.ventas > peakDay.ventas)) {
+          peakDay = d;
+        }
+      });
+    }
+
+    const mostCrowdedShift = !hasOrders 
+      ? 'Sin comandas aún'
+      : peakHours.dinner1Pct >= peakHours.dinner2Pct && peakHours.dinner1Pct >= peakHours.lunchPct
       ? 'Primer Turno Cena (17:00 - 21:00)'
       : peakHours.lunchPct >= peakHours.dinner2Pct
       ? 'Almuerzos & Tardes (12:00 - 16:59)'
@@ -862,20 +870,20 @@ export default function AdminDashboard({ onExit }) {
 
     const salesGrowth = prevSales > 0 
       ? (((totalSales - prevSales) / prevSales) * 100).toFixed(1)
-      : totalSales > 0 ? '+12.4' : '0.0';
+      : '0.0';
 
     const dinersGrowth = prevDiners > 0 
       ? (((totalDiners - prevDiners) / prevDiners) * 100).toFixed(1)
-      : totalDiners > 0 ? '+7.8' : '0.0';
+      : '0.0';
 
-    const ticketDiff = prevAvgTicket > 0 ? avgTicketPerTable - prevAvgTicket : 85;
+    const ticketDiff = prevAvgTicket > 0 ? avgTicketPerTable - prevAvgTicket : 0;
 
     const periodDays = statsTimeframe === 'quincena' ? 14 : statsTimeframe === 'mes' ? 30 : 7;
     const avgDailySales = Math.round(totalSales / periodDays);
     const avgDailyDiners = Math.round(totalDiners / periodDays);
 
     const salonCapacity = tables.reduce((acc, t) => acc + (Number(t.capacidad) || 4), 0) * 2;
-    const occupancyRate = salonCapacity > 0 ? Math.min(Math.round((avgDailyDiners / salonCapacity) * 100), 100) : 74;
+    const occupancyRate = salonCapacity > 0 && totalDiners > 0 ? Math.min(Math.round((avgDailyDiners / salonCapacity) * 100), 100) : 0;
 
     return {
       activeOrdersCount: activeOrders.length,
@@ -2096,7 +2104,7 @@ export default function AdminDashboard({ onExit }) {
               <div className="mt-4 flex flex-col sm:flex-row items-center justify-between text-xs text-[#86868B] gap-2">
                 <div className="flex items-center gap-2">
                   <span className="w-3 h-3 rounded-full bg-gradient-to-tr from-[#0071E3] to-[#409CFF]"></span>
-                  <span>Día con mayor afluencia y recaudación: <strong className="text-[#1D1D1F]">{peakDay?.nombre || 'Sábado'} (${(peakDay?.ventas || 0).toLocaleString('es-MX')} MXN / {peakDay?.comensales || 0} comensales)</strong></span>
+                  <span>Día con mayor afluencia y recaudación: <strong className="text-[#1D1D1F]">{peakDay ? `${peakDay.nombre} ($${peakDay.ventas.toLocaleString('es-MX')} MXN / ${peakDay.comensales} comensales)` : 'Sin ventas registradas en este período'}</strong></span>
                 </div>
                 <div>
                   Ocupación estimada de sala: <strong className="text-[#34C759]">{occupancyRate}%</strong>
@@ -2220,7 +2228,11 @@ export default function AdminDashboard({ onExit }) {
                   </p>
 
                   <div className="space-y-3.5">
-                    {categorySalesStats.map((cat) => (
+                    {categorySalesStats.length === 0 ? (
+                      <div className="text-center py-6 text-xs text-[#86868B]">
+                        Aún no hay ventas por categoría en este período.
+                      </div>
+                    ) : categorySalesStats.map((cat) => (
                       <div key={cat.categoria} className="space-y-1">
                         <div className="flex items-center justify-between text-xs">
                           <span className="font-medium text-[#1D1D1F]">{cat.categoria}</span>
