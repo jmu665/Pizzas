@@ -866,7 +866,7 @@ export default function AdminDashboard({ onExit }) {
                 : 'border-transparent text-[#6B635E] hover:text-[#221E1C]'
             }`}
           >
-            <Wine size={14} /> Carta & Insumos Críticos
+            <Wine size={14} /> Configuración de Menú & Precios
             {outOfStockDishes > 0 && (
               <span className="w-5 h-5 rounded-full bg-[#EF4444] text-white text-[10px] font-bold flex items-center justify-center font-mono">
                 {outOfStockDishes}
