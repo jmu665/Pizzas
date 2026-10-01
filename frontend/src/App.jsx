@@ -546,26 +546,40 @@ export default function App() {
                 {currentDishes.map((item, idx) => {
                   const isSpecialty = item.nombre.toLowerCase().includes('porto brezza');
                   return (
-                    <div key={item.id || idx} className={`${idx !== 0 ? 'pt-8' : ''} group`}>
-                      <div className="flex items-baseline justify-between gap-4 mb-1.5">
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-serif-luxury text-xl sm:text-2xl text-[#1C1816] font-medium tracking-wide group-hover:text-[#6E1B24] transition-colors">
-                            {item.nombre}
-                          </h3>
-                          {isSpecialty && (
-                            <span className="text-[9px] uppercase tracking-[0.15em] px-2 py-0.5 bg-[#6E1B24] text-white font-semibold rounded-xs">
-                              Specialità
-                            </span>
-                          )}
+                    <div key={item.id || idx} className={`${idx !== 0 ? 'pt-8' : ''} group flex flex-col sm:flex-row gap-4 sm:gap-6 items-start justify-between`}>
+                      <div className="flex-1 w-full">
+                        <div className="flex items-baseline justify-between gap-4 mb-1.5">
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-serif-luxury text-xl sm:text-2xl text-[#1C1816] font-medium tracking-wide group-hover:text-[#6E1B24] transition-colors">
+                              {item.nombre}
+                            </h3>
+                            {isSpecialty && (
+                              <span className="text-[9px] uppercase tracking-[0.15em] px-2 py-0.5 bg-[#6E1B24] text-white font-semibold rounded-xs">
+                                Specialità
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex-1 border-b border-dotted border-[#D8CFC0] mx-2 hidden sm:block"></div>
+                          <span className="font-serif-luxury text-lg sm:text-xl font-semibold text-[#6E1B24] whitespace-nowrap">
+                            ${Number(item.precio).toFixed(2)}
+                          </span>
                         </div>
-                        <div className="flex-1 border-b border-dotted border-[#D8CFC0] mx-2 hidden sm:block"></div>
-                        <span className="font-serif-luxury text-lg sm:text-xl font-semibold text-[#6E1B24] whitespace-nowrap">
-                          ${Number(item.precio).toFixed(2)}
-                        </span>
+                        <p className="text-xs sm:text-[13px] text-[#6B635E] font-light leading-relaxed max-w-2xl italic">
+                          {item.descripcion}
+                        </p>
                       </div>
-                      <p className="text-xs sm:text-[13px] text-[#6B635E] font-light leading-relaxed max-w-2xl italic">
-                        {item.descripcion}
-                      </p>
+
+                      {/* Imagen elegante del platillo si existe */}
+                      {item.imagen_url && (
+                        <div className="w-20 h-20 sm:w-24 sm:h-24 shrink-0 rounded-xs overflow-hidden border border-[#D8CFC0] shadow-xs bg-[#F4EFE6] order-first sm:order-last">
+                          <img
+                            src={item.imagen_url}
+                            alt={item.nombre}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            loading="lazy"
+                          />
+                        </div>
+                      )}
                     </div>
                   );
                 })}

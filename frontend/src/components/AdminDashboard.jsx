@@ -34,7 +34,9 @@ import {
   Edit3,
   Trash2,
   Save,
-  X
+  X,
+  Camera,
+  Upload
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import TableOrderModal from './TableOrderModal';
@@ -476,14 +478,15 @@ export default function AdminDashboard({ onExit }) {
             precio: priceNum,
             categoria: editingDish.categoria || 'Pizzas Artesanales',
             descripcion: editingDish.descripcion || '',
-            disponible: editingDish.disponible !== false
+            disponible: editingDish.disponible !== false,
+            imagen_url: editingDish.imagen_url || null
           })
           .eq('id', editingDish.id);
 
         if (!error) {
           setMenuItems(prev => prev.map(item => 
             item.id === editingDish.id 
-              ? { ...item, ...editingDish, precio: priceNum } 
+              ? { ...item, ...editingDish, precio: priceNum, imagen_url: editingDish.imagen_url || null } 
               : item
           ));
           setEditingDish(null);
@@ -500,7 +503,8 @@ export default function AdminDashboard({ onExit }) {
             precio: priceNum,
             categoria: editingDish.categoria || 'Pizzas Artesanales',
             descripcion: editingDish.descripcion || '',
-            disponible: true
+            disponible: true,
+            imagen_url: editingDish.imagen_url || null
           }])
           .select();
 
@@ -517,6 +521,26 @@ export default function AdminDashboard({ onExit }) {
     } finally {
       setSavingDish(false);
     }
+  };
+
+  // Manejo de carga de imagen local desde dispositivo
+  const handleImageFileUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 4 * 1024 * 1024) {
+      alert('La imagen seleccionada supera los 4MB. Por favor elija una imagen más ligera.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setEditingDish(prev => ({
+        ...prev,
+        imagen_url: reader.result
+      }));
+    };
+    reader.readAsDataURL(file);
   };
 
   // Edición rápida de precio directo desde la tarjeta
@@ -1401,11 +1425,27 @@ export default function AdminDashboard({ onExit }) {
                       }`}
                     >
                       <div>
+                        {/* Fotografía de portada si tiene imagen */}
+                        {item.imagen_url && (
+                          <div className="mb-3 -mt-1 -mx-1 rounded-xs overflow-hidden h-28 border border-[#EAE3D6] relative bg-[#FAF7F2]">
+                            <img
+                              src={item.imagen_url}
+                              alt={item.nombre}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            />
+                            <div className="absolute top-2 right-2 px-2 py-0.5 bg-black/60 backdrop-blur-xs text-white text-[9px] uppercase tracking-wider font-semibold rounded-xs">
+                              {item.categoria}
+                            </div>
+                          </div>
+                        )}
+
                         <div className="flex items-start justify-between gap-3 mb-2">
                           <div className="flex-1 min-w-0">
-                            <span className="text-[9px] uppercase tracking-widest text-[#B88E3E] font-semibold block truncate">
-                              {item.categoria}
-                            </span>
+                            {!item.imagen_url && (
+                              <span className="text-[9px] uppercase tracking-widest text-[#B88E3E] font-semibold block truncate">
+                                {item.categoria}
+                              </span>
+                            )}
                             <h4 className="font-serif-luxury text-lg font-bold text-[#1C1816] mt-0.5 truncate leading-snug">
                               {item.nombre}
                             </h4>
@@ -1703,6 +1743,106 @@ export default function AdminDashboard({ onExit }) {
                   onChange={(e) => setEditingDish({ ...editingDish, descripcion: e.target.value })}
                   className="w-full px-3.5 py-2 text-xs bg-white border border-[#DDD5C7] rounded-xs focus:outline-none focus:border-[#6E1B24] leading-relaxed"
                 ></textarea>
+              </div>
+
+              {/* Fotografía del Platillo */}
+              <div className="bg-[#F6F1EA] p-3.5 rounded-xs border border-[#DDD5C7] space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] uppercase tracking-wider font-bold text-[#5E554E] flex items-center gap-1.5">
+                    <Camera size={13} className="text-[#6E1B24]" />
+                    Fotografía del Platillo
+                  </label>
+                  {editingDish.imagen_url && (
+                    <button
+                      type="button"
+                      onClick={() => setEditingDish({ ...editingDish, imagen_url: '' })}
+                      className="text-[10px] text-red-600 hover:text-red-800 underline cursor-pointer"
+                    >
+                      Quitar foto
+                    </button>
+                  )}
+                </div>
+
+                {/* Preview de la imagen si está seleccionada */}
+                {editingDish.imagen_url ? (
+                  <div className="relative rounded-xs overflow-hidden h-36 border border-[#DDD5C7] bg-white group">
+                    <img
+                      src={editingDish.imagen_url}
+                      alt="Vista previa"
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                      <label className="px-3 py-1.5 bg-white text-xs font-semibold text-[#1C1816] rounded-xs cursor-pointer hover:bg-gray-100 shadow-sm flex items-center gap-1">
+                        <Upload size={12} /> Cambiar Foto
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleImageFileUpload}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="border border-dashed border-[#C5BBAA] rounded-xs p-4 text-center bg-white/70">
+                    <Camera size={26} className="mx-auto text-[#A89D8E] mb-1.5" />
+                    <p className="text-xs text-[#5E554E] font-medium">Sube una fotografía del platillo</p>
+                    <p className="text-[10px] text-[#8A8077] mb-3">Desde tu computadora, celular o cámara (máx. 4MB)</p>
+                    <label className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-[#1A382B] text-white text-xs font-semibold rounded-xs cursor-pointer hover:bg-[#122A20] shadow-xs">
+                      <Upload size={12} /> Seleccionar Archivo / Foto
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageFileUpload}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+                )}
+
+                {/* Alternativa: URL o Galería rápida */}
+                <div className="space-y-2 pt-1 border-t border-[#E5DCD0]">
+                  <div>
+                    <span className="text-[10px] font-semibold text-[#7A7067] uppercase tracking-wider block mb-1">
+                      O pegar enlace de imagen web (URL):
+                    </span>
+                    <input
+                      type="url"
+                      placeholder="https://ejemplo.com/foto-pizza.jpg"
+                      value={editingDish.imagen_url || ''}
+                      onChange={(e) => setEditingDish({ ...editingDish, imagen_url: e.target.value })}
+                      className="w-full px-3 py-1.5 text-xs bg-white border border-[#DDD5C7] rounded-xs focus:outline-none focus:border-[#6E1B24]"
+                    />
+                  </div>
+
+                  <div>
+                    <span className="text-[10px] font-semibold text-[#7A7067] uppercase tracking-wider block mb-1">
+                      O elegir de la galería del restaurante:
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {[
+                        { label: '🍕 Pizza Horno', url: '/image copy 3.png' },
+                        { label: '🍕 Pizza Trufa', url: '/image copy 4.png' },
+                        { label: '🍝 Pasta Fresca', url: '/image copy 2.png' },
+                        { label: '🥖 Focaccia Romero', url: '/image.png' },
+                        { label: '🍰 Dolci / Tiramisù', url: '/Gemini_Generated_Image_78a1e378a1e378a1.jpg' }
+                      ].map((preset, pIdx) => (
+                        <button
+                          key={pIdx}
+                          type="button"
+                          onClick={() => setEditingDish({ ...editingDish, imagen_url: preset.url })}
+                          className={`text-[10px] px-2 py-1 rounded-xs border cursor-pointer transition-colors ${
+                            editingDish.imagen_url === preset.url
+                              ? 'bg-[#6E1B24] text-white border-[#6E1B24]'
+                              : 'bg-white hover:bg-[#EAE3D6] text-[#4A423C] border-[#DDD5C7]'
+                          }`}
+                        >
+                          {preset.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
               </div>
 
               {/* Disponibilidad */}
