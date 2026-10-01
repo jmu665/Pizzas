@@ -69,15 +69,6 @@ export default function AdminDashboard({ onExit }) {
     return saved ? JSON.parse(saved) : [];
   });
 
-  // Inventario de Insumos Críticos de Porto Brezza
-  const [criticalStock, setCriticalStock] = useState([
-    { id: 'burrata', nombre: 'Burratas Frescas de Puglia', restante: 14, total: 20, unidad: 'pzas', minAlerta: 4 },
-    { id: 'masas', nombre: 'Bolas de Masa Madre (48h fermentación)', restante: 38, total: 50, unidad: 'masas', minAlerta: 8 },
-    { id: 'serrano', nombre: 'Jamón Serrano Gran Reserva', restante: 18, total: 25, unidad: 'porciones', minAlerta: 5 },
-    { id: 'chianti', nombre: 'Chianti Classico Riserva 2019 (Cava)', restante: 6, total: 12, unidad: 'botellas', minAlerta: 3 },
-    { id: 'tartufo', nombre: 'Crema de Trufa Negra Estiva', restante: 5, total: 8, unidad: 'frascos', minAlerta: 2 },
-  ]);
-
   // Total de ventas cobradas REALES en el turno (Corte real)
   const [shiftSales, setShiftSales] = useState(0);
 
@@ -391,6 +382,26 @@ export default function AdminDashboard({ onExit }) {
     }
   };
 
+  // Eliminar mesa física de Supabase y del plano
+  const handleDeleteTable = async (tableId, tableNum) => {
+    if (!window.confirm(`¿Estás seguro de que deseas quitar la Mesa ${tableNum} de la sala? Esta acción no se puede deshacer.`)) return;
+    try {
+      const { error } = await supabase
+        .from('mesas')
+        .delete()
+        .eq('id', tableId);
+
+      if (!error) {
+        setTables(prev => prev.filter(t => t.id !== tableId));
+      } else {
+        setTables(prev => prev.filter(t => t.id !== tableId));
+      }
+    } catch (err) {
+      console.error('Error eliminando mesa:', err);
+      setTables(prev => prev.filter(t => t.id !== tableId));
+    }
+  };
+
   // Reiniciar todas las mesas a LIBRE (Empezar turno limpio)
   const handleResetAllTables = async () => {
     if (!window.confirm('¿Desea reiniciar todas las mesas a estado LIBRE para iniciar un nuevo turno limpio?')) return;
@@ -591,17 +602,6 @@ export default function AdminDashboard({ onExit }) {
     }
   };
 
-  // Ajustar stock crítico (+ / -)
-  const handleAdjustStock = (id, delta) => {
-    setCriticalStock(prev => prev.map(item => {
-      if (item.id === id) {
-        const nextVal = Math.max(0, item.restante + delta);
-        return { ...item, restante: nextVal };
-      }
-      return item;
-    }));
-  };
-
   // Actualizar estado de ticket en KDS
   const handleUpdateTicketStatus = (ticketId, nextStatus) => {
     if (nextStatus === 'DESPACHADO') {
@@ -649,29 +649,29 @@ export default function AdminDashboard({ onExit }) {
     return matchesSearch && matchesCategory;
   });
 
-  // PANTALLA DE ACCESO (LOGIN CON PIN)
+  // PANTALLA DE ACCESO (LOGIN CON PIN - ESTILO APPLE)
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-[#14100E] flex items-center justify-center p-6 text-[#FAF7F2]">
-        <div className="w-full max-w-sm bg-[#1E1815] border border-[#B88E3E]/40 p-8 shadow-2xl rounded-sm">
-          <div className="text-center mb-8">
+      <div className="min-h-screen bg-[#F5F5F7] flex items-center justify-center p-6 text-[#1D1D1F]">
+        <div className="w-full max-w-sm bg-white/80 backdrop-blur-2xl border border-white/60 p-8 shadow-[0_20px_50px_rgba(0,0,0,0.06)] rounded-3xl text-center">
+          <div className="mb-6">
             <img 
               src="/Gemini_Generated_Image_78a1e378a1e378a1.jpg" 
               alt="Porto Brezza" 
-              className="w-16 h-16 rounded-full object-cover border-2 border-[#B88E3E] mx-auto mb-3 shadow"
+              className="w-18 h-18 rounded-full object-cover ring-4 ring-black/5 mx-auto mb-3 shadow-md"
             />
-            <h2 className="font-serif-luxury text-2xl font-bold tracking-wider">
-              <span className="text-[#3E7D5C]">PORTO</span> <span className="text-[#B83240]">BREZZA</span>
+            <h2 className="text-xl font-semibold tracking-tight text-[#1D1D1F]">
+              Porto Brezza
             </h2>
-            <span className="text-[10px] uppercase tracking-[0.3em] text-[#D4B26F] font-semibold block mt-1">
+            <span className="text-xs text-[#86868B] font-medium block mt-0.5">
               Panel del Propietario & Gerencia
             </span>
           </div>
 
           <form onSubmit={handlePinSubmit} className="space-y-4">
             <div>
-              <label className="block text-[11px] uppercase tracking-wider text-[#A69B8F] mb-2 font-medium">
-                Ingrese su PIN de Seguridad
+              <label className="block text-[11px] font-medium text-[#86868B] mb-2 uppercase tracking-wider">
+                Ingresa tu PIN de Seguridad
               </label>
               <input
                 type="password"
@@ -680,10 +680,10 @@ export default function AdminDashboard({ onExit }) {
                 placeholder="••••"
                 value={pinInput}
                 onChange={(e) => setPinInput(e.target.value)}
-                className="w-full bg-[#120E0C] border border-[#3A2E28] focus:border-[#B88E3E] text-center text-2xl tracking-[0.5em] py-3 text-white focus:outline-none rounded-xs font-mono"
+                className="w-full bg-[#E5E5EA]/60 border-0 focus:ring-2 focus:ring-[#0071E3] text-center text-3xl tracking-[0.4em] py-3 text-[#1D1D1F] focus:outline-none rounded-2xl font-mono transition-all"
               />
               {pinError && (
-                <p className="text-[11px] text-[#EF4444] mt-1.5 text-center">
+                <p className="text-[12px] text-[#FF3B30] mt-2 font-medium">
                   PIN incorrecto. (PIN sugerido: 1234)
                 </p>
               )}
@@ -691,16 +691,16 @@ export default function AdminDashboard({ onExit }) {
 
             <button
               type="submit"
-              className="w-full py-3 bg-[#6E1B24] hover:bg-[#58131B] text-white text-[11px] uppercase tracking-[0.25em] font-semibold transition-all cursor-pointer shadow"
+              className="w-full py-3.5 bg-[#0071E3] hover:bg-[#0077ED] text-white text-xs uppercase tracking-wider font-semibold rounded-full transition-all cursor-pointer shadow-sm active:scale-[0.98]"
             >
               Acceder al Sistema
             </button>
           </form>
 
-          <div className="mt-6 pt-4 border-t border-[#2A221E] text-center">
+          <div className="mt-6 pt-5 border-t border-black/[0.06] text-center">
             <button
               onClick={onExit}
-              className="text-xs text-[#A69B8F] hover:text-white inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+              className="text-xs text-[#86868B] hover:text-[#1D1D1F] inline-flex items-center gap-1.5 transition-colors cursor-pointer font-medium"
             >
               <ArrowLeft size={13} /> Volver a la Carta Web
             </button>
@@ -710,138 +710,162 @@ export default function AdminDashboard({ onExit }) {
     );
   }
 
-  // PANEL DE CONTROL AUTENTICADO
+  // PANEL DE CONTROL AUTENTICADO (ESTILO APPLE)
   return (
-    <div className="min-h-screen bg-[#FAF7F2] text-[#221E1C] flex flex-col font-sans-clean">
+    <div className="min-h-screen bg-[#F5F5F7] text-[#1D1D1F] flex flex-col font-sans selection:bg-[#0071E3]/20">
       
-      {/* 1. Header del Panel de Control */}
-      <header className="bg-[#14100E] text-white border-b border-[#B88E3E]/30 sticky top-0 z-30 px-4 sm:px-6 py-3.5">
+      {/* 1. Header Superior Trans translúcido (Apple Frosted Glass) */}
+      <header className="bg-white/80 backdrop-blur-xl border-b border-black/[0.08] sticky top-0 z-30 px-4 sm:px-8 py-3.5">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             <img 
               src="/Gemini_Generated_Image_78a1e378a1e378a1.jpg" 
               alt="Porto Brezza" 
-              className="w-9 h-9 rounded-full object-cover border border-[#B88E3E]"
+              className="w-9 h-9 rounded-full object-cover ring-1 ring-black/10 shadow-xs"
             />
             <div>
-              <div className="font-serif-luxury text-lg font-bold tracking-wider leading-none">
-                <span className="text-[#3E7D5C]">PORTO</span> <span className="text-[#B83240]">BREZZA</span>
-                <span className="text-[10px] font-sans-clean font-semibold uppercase tracking-widest text-[#D4B26F] ml-2 px-2 py-0.5 bg-[#251C17] border border-[#3D2E24] rounded-xs">
-                  POS & Gerencia
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-base text-[#1D1D1F] tracking-tight">
+                  Porto Brezza
+                </span>
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-[#86868B] px-2 py-0.5 bg-black/[0.04] rounded-full">
+                  Gerencia
                 </span>
               </div>
-              <p className="text-[10px] text-[#A69B8F] tracking-wide mt-0.5">
+              <p className="text-[11px] text-[#86868B] tracking-normal">
                 Plaza Costasur • Los Cabos
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-2 sm:gap-2.5">
             <button
               onClick={loadData}
               disabled={refreshing}
-              className="px-2.5 sm:px-3 py-1.5 rounded-xs bg-[#241D18] hover:bg-[#332822] text-xs text-[#D4B26F] border border-[#3D2E24] inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+              className="px-3 py-1.5 rounded-full bg-black/[0.04] hover:bg-black/[0.08] text-xs font-medium text-[#1D1D1F] inline-flex items-center gap-1.5 transition-colors cursor-pointer"
               title="Actualizar datos"
             >
-              <RefreshCw size={13} className={refreshing ? 'animate-spin' : ''} />
+              <RefreshCw size={13} className={refreshing ? 'animate-spin text-[#0071E3]' : ''} />
               <span className="hidden sm:inline">Actualizar</span>
             </button>
             <button
               onClick={onExit}
-              className="px-3 sm:px-3.5 py-1.5 rounded-xs bg-[#6E1B24] hover:bg-[#58131B] text-xs text-white uppercase tracking-wider font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+              className="px-3.5 py-1.5 rounded-full bg-[#0071E3] hover:bg-[#0077ED] text-xs text-white font-medium inline-flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs active:scale-[0.98]"
             >
               <Eye size={13} />
-              <span className="hidden sm:inline">Ver Web Cliente</span>
+              <span>Ver Web Cliente</span>
             </button>
           </div>
         </div>
       </header>
 
-      {/* 2. Barra de Métricas del Turno en Vivo */}
-      <section className="bg-[#1C1613] text-[#FAF7F2] border-b border-[#2A221E] px-4 sm:px-6 py-5">
-        <div className="max-w-7xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+      {/* 2. Barra de Métricas del Turno (Widgets Estilo Apple) */}
+      <section className="px-4 sm:px-8 pt-6 pb-2 max-w-7xl mx-auto w-full">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
           
           {/* Mesas Ocupadas */}
-          <div className="bg-[#14100E] p-3 sm:p-4 border border-[#2D231E] rounded-xs">
-            <span className="text-[9px] sm:text-[10px] uppercase tracking-widest text-[#A69B8F] block mb-1 flex items-center gap-1.5">
-              <Utensils size={11} className="text-[#D4B26F]" /> Ocupación de Mesas
-            </span>
-            <div className="flex items-baseline gap-2">
-              <span className="font-serif-luxury text-2xl sm:text-3xl font-bold text-[#D4B26F]">
-                {occupiedTablesCount} / {tables.length}
+          <div className="bg-white rounded-2xl p-4 sm:p-5 border border-black/[0.06] shadow-[0_2px_12px_rgba(0,0,0,0.03)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.05)] transition-all">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-[#86868B]">
+                Ocupación
               </span>
-              <span className="text-[11px] text-[#A69B8F]">mesas en servicio</span>
+              <div className="w-8 h-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
+                <Utensils size={14} />
+              </div>
             </div>
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-2xl sm:text-3xl font-semibold tracking-tight text-[#1D1D1F]">
+                {occupiedTablesCount} <span className="text-lg text-[#86868B] font-normal">/ {tables.length}</span>
+              </span>
+            </div>
+            <span className="text-[12px] text-[#86868B] mt-0.5 block">Mesas en servicio</span>
           </div>
 
           {/* Comensales en Salón */}
-          <div className="bg-[#14100E] p-3 sm:p-4 border border-[#2D231E] rounded-xs">
-            <span className="text-[9px] sm:text-[10px] uppercase tracking-widest text-[#A69B8F] block mb-1 flex items-center gap-1.5">
-              <Users size={11} className="text-[#3E7D5C]" /> Comensales en Piso
-            </span>
-            <div className="flex items-baseline gap-2">
-              <span className="font-serif-luxury text-2xl sm:text-3xl font-bold text-[#3E7D5C]">
+          <div className="bg-white rounded-2xl p-4 sm:p-5 border border-black/[0.06] shadow-[0_2px_12px_rgba(0,0,0,0.03)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.05)] transition-all">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-[#86868B]">
+                Comensales
+              </span>
+              <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                <Users size={14} />
+              </div>
+            </div>
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-2xl sm:text-3xl font-semibold tracking-tight text-[#1D1D1F]">
                 {currentDinersInRestaurant}
               </span>
-              <span className="text-[11px] text-[#A69B8F]">personas comiendo</span>
             </div>
+            <span className="text-[12px] text-[#86868B] mt-0.5 block">Personas en piso</span>
           </div>
 
           {/* Cuentas Activas por Cobrar */}
-          <div className="bg-[#14100E] p-3 sm:p-4 border border-[#2D231E] rounded-xs">
-            <span className="text-[9px] sm:text-[10px] uppercase tracking-widest text-[#A69B8F] block mb-1 flex items-center gap-1.5">
-              <Receipt size={11} className="text-[#60A5FA]" /> Comandas Activas
-            </span>
-            <div className="flex items-baseline gap-2">
-              <span className="font-serif-luxury text-2xl sm:text-3xl font-bold text-white">
+          <div className="bg-white rounded-2xl p-4 sm:p-5 border border-black/[0.06] shadow-[0_2px_12px_rgba(0,0,0,0.03)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.05)] transition-all">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-[#86868B]">
+                Comandas Activas
+              </span>
+              <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                <Receipt size={14} />
+              </div>
+            </div>
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-2xl sm:text-3xl font-semibold tracking-tight text-[#0071E3]">
                 ${activeComandasTotal.toLocaleString('es-MX')}
               </span>
-              <span className="text-[10px] text-[#A69B8F] font-mono">MXN en mesas</span>
             </div>
+            <span className="text-[12px] text-[#86868B] mt-0.5 block">MXN en mesas</span>
           </div>
 
           {/* Ventas Cobradas del Turno */}
-          <div className="bg-[#14100E] p-3 sm:p-4 border border-[#2D231E] rounded-xs">
-            <span className="text-[9px] sm:text-[10px] uppercase tracking-widest text-[#A69B8F] block mb-1 flex items-center gap-1.5">
-              <TrendingUp size={11} className="text-[#86EFAC]" /> Ventas del Turno (Corte)
-            </span>
-            <div className="flex items-baseline gap-2">
-              <span className="font-serif-luxury text-2xl sm:text-3xl font-bold text-[#86EFAC]">
+          <div className="bg-white rounded-2xl p-4 sm:p-5 border border-black/[0.06] shadow-[0_2px_12px_rgba(0,0,0,0.03)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.05)] transition-all">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-[#86868B]">
+                Ventas del Turno
+              </span>
+              <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+                <TrendingUp size={14} />
+              </div>
+            </div>
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-2xl sm:text-3xl font-semibold tracking-tight text-emerald-600">
                 ${shiftSales.toLocaleString('es-MX')}
               </span>
-              <span className="text-[10px] text-[#A69B8F] font-mono">MXN cobrado</span>
             </div>
+            <span className="text-[12px] text-[#86868B] mt-0.5 block">MXN corte cobrado</span>
           </div>
 
         </div>
       </section>
 
-      {/* 3. Navegación Principal del Sistema (4 Pestañas de Restaurante) */}
-      <div className="bg-[#F2ECE1] border-b border-[#E0D8C8] px-4 sm:px-6 sticky top-[57px] z-20">
-        <div className="max-w-7xl mx-auto flex items-center overflow-x-auto gap-4 sm:gap-6 no-scrollbar">
+      {/* 3. Navegación Segmentada Estilo Apple (iOS / macOS Segmented Control) */}
+      <div className="px-4 sm:px-8 pt-4 pb-2 max-w-7xl mx-auto w-full sticky top-[61px] z-20">
+        <div className="bg-[#E5E5EA]/70 backdrop-blur-md p-1 rounded-2xl inline-flex gap-1 border border-black/[0.04] overflow-x-auto max-w-full no-scrollbar shadow-xs">
           
           <button
             onClick={() => setActiveTab('mesas')}
-            className={`py-3.5 text-xs uppercase tracking-[0.18em] font-bold border-b-2 transition-all cursor-pointer whitespace-nowrap inline-flex items-center gap-2 ${
+            className={`py-2 px-4 rounded-xl text-xs sm:text-sm font-medium transition-all cursor-pointer whitespace-nowrap inline-flex items-center gap-2 ${
               activeTab === 'mesas'
-                ? 'border-[#6E1B24] text-[#6E1B24]'
-                : 'border-transparent text-[#6B635E] hover:text-[#221E1C]'
+                ? 'bg-white text-[#1D1D1F] shadow-[0_2px_8px_rgba(0,0,0,0.08)]'
+                : 'text-[#86868B] hover:text-[#1D1D1F] hover:bg-black/[0.02]'
             }`}
           >
-            <Utensils size={14} /> Mesas & Comandero POS
+            <Utensils size={15} className={activeTab === 'mesas' ? 'text-[#0071E3]' : ''} />
+            <span>Mesas & POS</span>
           </button>
 
           <button
             onClick={() => setActiveTab('cocina')}
-            className={`py-3.5 text-xs uppercase tracking-[0.18em] font-bold border-b-2 transition-all cursor-pointer whitespace-nowrap inline-flex items-center gap-2 ${
+            className={`py-2 px-4 rounded-xl text-xs sm:text-sm font-medium transition-all cursor-pointer whitespace-nowrap inline-flex items-center gap-2 ${
               activeTab === 'cocina'
-                ? 'border-[#6E1B24] text-[#6E1B24]'
-                : 'border-transparent text-[#6B635E] hover:text-[#221E1C]'
+                ? 'bg-white text-[#1D1D1F] shadow-[0_2px_8px_rgba(0,0,0,0.08)]'
+                : 'text-[#86868B] hover:text-[#1D1D1F] hover:bg-black/[0.02]'
             }`}
           >
-            <ChefHat size={14} /> Cocina & Horno (KDS)
+            <ChefHat size={15} className={activeTab === 'cocina' ? 'text-[#0071E3]' : ''} />
+            <span>Cocina (KDS)</span>
             {kitchenTickets.length > 0 && (
-              <span className="w-5 h-5 rounded-full bg-[#EF4444] text-white text-[10px] font-bold flex items-center justify-center font-mono">
+              <span className="px-1.5 py-0.2 rounded-full bg-[#FF3B30] text-white text-[10px] font-bold">
                 {kitchenTickets.length}
               </span>
             )}
@@ -849,26 +873,28 @@ export default function AdminDashboard({ onExit }) {
 
           <button
             onClick={() => setActiveTab('reservas')}
-            className={`py-3.5 text-xs uppercase tracking-[0.18em] font-bold border-b-2 transition-all cursor-pointer whitespace-nowrap inline-flex items-center gap-2 ${
+            className={`py-2 px-4 rounded-xl text-xs sm:text-sm font-medium transition-all cursor-pointer whitespace-nowrap inline-flex items-center gap-2 ${
               activeTab === 'reservas'
-                ? 'border-[#6E1B24] text-[#6E1B24]'
-                : 'border-transparent text-[#6B635E] hover:text-[#221E1C]'
+                ? 'bg-white text-[#1D1D1F] shadow-[0_2px_8px_rgba(0,0,0,0.08)]'
+                : 'text-[#86868B] hover:text-[#1D1D1F] hover:bg-black/[0.02]'
             }`}
           >
-            <Calendar size={14} /> Libro de Reservaciones
+            <Calendar size={15} className={activeTab === 'reservas' ? 'text-[#0071E3]' : ''} />
+            <span>Reservaciones</span>
           </button>
 
           <button
             onClick={() => setActiveTab('menu')}
-            className={`py-3.5 text-xs uppercase tracking-[0.18em] font-bold border-b-2 transition-all cursor-pointer whitespace-nowrap inline-flex items-center gap-2 ${
+            className={`py-2 px-4 rounded-xl text-xs sm:text-sm font-medium transition-all cursor-pointer whitespace-nowrap inline-flex items-center gap-2 ${
               activeTab === 'menu'
-                ? 'border-[#6E1B24] text-[#6E1B24]'
-                : 'border-transparent text-[#6B635E] hover:text-[#221E1C]'
+                ? 'bg-white text-[#1D1D1F] shadow-[0_2px_8px_rgba(0,0,0,0.08)]'
+                : 'text-[#86868B] hover:text-[#1D1D1F] hover:bg-black/[0.02]'
             }`}
           >
-            <Wine size={14} /> Configuración de Menú & Precios
+            <Wine size={15} className={activeTab === 'menu' ? 'text-[#0071E3]' : ''} />
+            <span>Carta & Precios</span>
             {outOfStockDishes > 0 && (
-              <span className="w-5 h-5 rounded-full bg-[#EF4444] text-white text-[10px] font-bold flex items-center justify-center font-mono">
+              <span className="px-1.5 py-0.2 rounded-full bg-[#FF9500] text-white text-[10px] font-bold">
                 {outOfStockDishes}
               </span>
             )}
@@ -880,66 +906,71 @@ export default function AdminDashboard({ onExit }) {
       {/* 4. Contenido de las Pestañas */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 flex-1 w-full">
         
-        {/* PESTAÑA 1: MESAS & COMANDERO POS */}
+        {/* PESTAÑA 1: MESAS & COMANDERO POS (ESTILO APPLE) */}
         {activeTab === 'mesas' && (
           <div className="space-y-6">
             
-            {/* Barra de Filtro de Zonas y Leyenda */}
-            <div className="bg-white p-4 border border-[#E3DBD0] shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-[11px] uppercase tracking-wider text-[#7A7067] font-semibold mr-1">
+            {/* Barra de Filtro de Zonas y Acciones Estilo Apple */}
+            <div className="bg-white rounded-2xl p-4 sm:p-5 border border-black/[0.06] shadow-[0_2px_12px_rgba(0,0,0,0.03)] flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+              
+              {/* Filtro de Zonas */}
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="text-[11px] uppercase tracking-wider font-semibold text-[#86868B] mr-1.5">
                   Zona:
                 </span>
-                {['TODAS', 'Terraza', 'Salón Principal', 'Barra & Cava'].map(zone => (
-                  <button
-                    key={zone}
-                    onClick={() => setSelectedZoneFilter(zone)}
-                    className={`px-3 py-1 text-xs uppercase tracking-wider font-semibold rounded-xs transition-colors cursor-pointer ${
-                      selectedZoneFilter === zone
-                        ? 'bg-[#1A382B] text-white'
-                        : 'bg-[#F4EFE6] text-[#524943] hover:bg-[#EAE3D6] border border-[#DDD5C7]'
-                    }`}
-                  >
-                    {zone}
-                  </button>
-                ))}
+                <div className="bg-[#E5E5EA]/60 p-1 rounded-xl inline-flex flex-wrap gap-1 border border-black/[0.04]">
+                  {['TODAS', 'Terraza', 'Salón Principal', 'Barra & Cava'].map(zone => (
+                    <button
+                      key={zone}
+                      onClick={() => setSelectedZoneFilter(zone)}
+                      className={`px-3 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                        selectedZoneFilter === zone
+                          ? 'bg-white text-[#1D1D1F] shadow-xs'
+                          : 'text-[#86868B] hover:text-[#1D1D1F]'
+                      }`}
+                    >
+                      {zone}
+                    </button>
+                  ))}
+                </div>
               </div>
 
-              <div className="flex items-center gap-2">
+              {/* Botones de Acción */}
+              <div className="flex items-center gap-2 w-full lg:w-auto justify-between lg:justify-end">
                 <button
                   onClick={() => setShowAddTableModal(true)}
-                  className="px-3 py-1 bg-[#1A382B] hover:bg-[#122A20] text-white text-xs uppercase tracking-wider font-semibold rounded-xs transition-colors cursor-pointer flex items-center gap-1 shadow-xs"
+                  className="px-4 py-2 bg-[#0071E3] hover:bg-[#0077ED] text-white text-xs font-medium rounded-full transition-all cursor-pointer flex items-center gap-1.5 shadow-xs active:scale-[0.98]"
                 >
-                  <Plus size={12} /> Nueva Mesa
+                  <Plus size={13} /> Nueva Mesa
                 </button>
 
                 <button
                   onClick={handleResetAllTables}
-                  className="px-3 py-1 bg-white hover:bg-red-50 text-[#EF4444] border border-red-200 text-xs uppercase tracking-wider font-semibold rounded-xs transition-colors cursor-pointer"
+                  className="px-3.5 py-2 bg-black/[0.04] hover:bg-red-50 text-[#86868B] hover:text-[#FF3B30] text-xs font-medium rounded-full transition-colors cursor-pointer"
                   title="Reinicia todas las mesas a libres para empezar un nuevo turno limpio"
                 >
                   Limpiar Turno
                 </button>
               </div>
 
-              {/* Leyenda de Estados */}
-              <div className="flex flex-wrap items-center gap-3 text-[10px] uppercase tracking-wider font-medium text-[#7A7067]">
+              {/* Leyenda de Estados Apple */}
+              <div className="flex flex-wrap items-center gap-3 text-[11px] font-medium text-[#86868B]">
                 <span className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#10B981]"></span> Libre
+                  <span className="w-2 h-2 rounded-full bg-[#34C759]"></span> Libre
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#EF4444]"></span> Comiendo
+                  <span className="w-2 h-2 rounded-full bg-[#FF3B30]"></span> En Mesa
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#F59E0B]"></span> Pide Cuenta
+                  <span className="w-2 h-2 rounded-full bg-[#FF9500]"></span> Pide Cuenta
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#3B82F6]"></span> Reservada
+                  <span className="w-2 h-2 rounded-full bg-[#0071E3]"></span> Reservada
                 </span>
               </div>
             </div>
 
-            {/* Plano de Mesas Interactivo */}
+            {/* Plano de Mesas Interactivo - Tarjetas Apple */}
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {filteredTables.map(table => {
                 const isLibre = table.estado === 'LIBRE';
@@ -949,28 +980,28 @@ export default function AdminDashboard({ onExit }) {
 
                 const statusStyles = {
                   LIBRE: {
-                    border: 'border-[#10B981]/50 hover:border-[#10B981]',
-                    badge: 'bg-[#ECFDF5] text-[#065F46] border-[#A7F3D0]',
+                    ring: 'ring-1 ring-[#34C759]/30 hover:ring-[#34C759]',
+                    badge: 'bg-[#34C759]/10 text-[#34C759]',
                     label: 'Libre'
                   },
                   OCUPADA: {
-                    border: 'border-[#EF4444]/60 hover:border-[#EF4444]',
-                    badge: 'bg-[#FEF2F2] text-[#991B1B] border-[#FECACA]',
+                    ring: 'ring-1 ring-[#FF3B30]/30 hover:ring-[#FF3B30]',
+                    badge: 'bg-[#FF3B30]/10 text-[#FF3B30]',
                     label: 'En Mesa'
                   },
                   CUENTA: {
-                    border: 'border-[#F59E0B]/60 hover:border-[#F59E0B]',
-                    badge: 'bg-[#FFFBEB] text-[#92400E] border-[#FDE68A]',
+                    ring: 'ring-1 ring-[#FF9500]/30 hover:ring-[#FF9500]',
+                    badge: 'bg-[#FF9500]/10 text-[#FF9500]',
                     label: 'Pide Cuenta'
                   },
                   RESERVADA: {
-                    border: 'border-[#3B82F6]/60 hover:border-[#3B82F6]',
-                    badge: 'bg-[#EFF6FF] text-[#1E40AF] border-[#BFDBFE]',
+                    ring: 'ring-1 ring-[#0071E3]/30 hover:ring-[#0071E3]',
+                    badge: 'bg-[#0071E3]/10 text-[#0071E3]',
                     label: 'Reservada'
                   }
                 }[table.estado] || {
-                  border: 'border-[#DDD5C7]',
-                  badge: 'bg-gray-100 text-gray-700',
+                  ring: 'ring-1 ring-black/[0.08]',
+                  badge: 'bg-black/[0.04] text-[#86868B]',
                   label: table.estado
                 };
 
@@ -978,75 +1009,91 @@ export default function AdminDashboard({ onExit }) {
                   <div
                     key={table.id}
                     onClick={() => setSelectedTableForOrder(table)}
-                    className={`bg-white rounded-xs border-2 ${statusStyles.border} p-4 shadow-xs hover:shadow-md transition-all cursor-pointer flex flex-col justify-between group relative`}
+                    className={`bg-white rounded-2xl ${statusStyles.ring} p-4 sm:p-5 shadow-[0_2px_10px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)] hover:-translate-y-0.5 transition-all cursor-pointer flex flex-col justify-between group relative`}
                   >
                     <div>
-                      {/* Encabezado de Mesa */}
+                      {/* Encabezado de Mesa con Número, Estado y Botón para Eliminar */}
                       <div className="flex items-start justify-between gap-2 mb-3">
                         <div className="flex items-center gap-2.5">
-                          <span className={`w-10 h-10 rounded-full font-serif-luxury text-lg font-bold flex items-center justify-center shadow-xs ${
-                            isOcupada ? 'bg-[#6E1B24] text-white' :
-                            isCuenta ? 'bg-[#F59E0B] text-white' :
-                            isReservada ? 'bg-[#3B82F6] text-white' :
-                            'bg-[#F4EFE6] text-[#1C1816] border border-[#DDD5C7]'
+                          <span className={`w-10 h-10 rounded-full text-base font-semibold flex items-center justify-center shadow-xs ${
+                            isOcupada ? 'bg-[#FF3B30] text-white' :
+                            isCuenta ? 'bg-[#FF9500] text-white' :
+                            isReservada ? 'bg-[#0071E3] text-white' :
+                            'bg-[#F5F5F7] text-[#1D1D1F] border border-black/[0.06]'
                           }`}>
                             {table.numero}
                           </span>
                           <div>
-                            <h4 className="font-serif-luxury font-bold text-base text-[#1C1816] leading-tight">
+                            <h4 className="font-semibold text-sm text-[#1D1D1F] leading-tight">
                               Mesa {table.numero}
                             </h4>
-                            <span className="text-[10px] text-[#7A7067] uppercase tracking-wider block">
+                            <span className="text-[11px] text-[#86868B] block mt-0.5">
                               {table.zona} • Max {table.capacidad}p
                             </span>
                           </div>
                         </div>
 
-                        <span className={`px-2 py-0.5 text-[9px] uppercase font-bold tracking-wider rounded-xs border ${statusStyles.badge}`}>
-                          {statusStyles.label}
-                        </span>
+                        {/* Estado y Botón de Quitar Mesa */}
+                        <div className="flex items-center gap-1">
+                          <span className={`px-2.5 py-0.5 text-[10px] font-semibold rounded-full ${statusStyles.badge}`}>
+                            {statusStyles.label}
+                          </span>
+                          
+                          {/* Opción para Quitar / Eliminar Mesa */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteTable(table.id, table.numero);
+                            }}
+                            className="p-1 text-[#86868B] hover:text-[#FF3B30] hover:bg-[#FF3B30]/10 rounded-full transition-colors cursor-pointer"
+                            title={`Quitar Mesa ${table.numero}`}
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
                       </div>
 
-                      {/* Información de la Comanda Activa */}
+                      {/* Información del Comensal */}
                       {table.reservaNombre && (
-                        <div className="bg-[#FAF7F2] p-2 rounded-xs border border-[#EBE3D7] mb-2 text-xs">
-                          <span className="text-[9px] uppercase tracking-wider text-[#A69B8F] block font-semibold">
-                            Comensal:
+                        <div className="bg-[#F5F5F7] p-2.5 rounded-xl border border-black/[0.04] mb-2.5 text-xs">
+                          <span className="text-[10px] uppercase font-semibold text-[#86868B] block">
+                            Cliente:
                           </span>
-                          <span className="font-bold text-[#1C1816] truncate block">
+                          <span className="font-medium text-[#1D1D1F] truncate block">
                             {table.reservaNombre}
                           </span>
                         </div>
                       )}
 
+                      {/* Comanda en Mesa */}
                       {table.order && table.order.items?.length > 0 ? (
                         <div className="space-y-1.5 my-2">
-                          <div className="text-[10px] text-[#7A7067] uppercase tracking-wider font-semibold flex justify-between">
+                          <div className="text-[11px] text-[#86868B] font-medium flex justify-between">
                             <span>{table.order.items.reduce((acc, i) => acc + i.cantidad, 0)} ítems pedidos</span>
                             {table.tiempoOcupada && <span>⏳ {table.tiempoOcupada}</span>}
                           </div>
-                          <div className="text-xs text-[#524943] line-clamp-2 italic bg-[#FBF9F5] p-1.5 rounded-xs border border-[#F0EAE1]">
+                          <div className="text-xs text-[#1D1D1F] line-clamp-2 italic bg-[#F5F5F7] p-2 rounded-xl border border-black/[0.04]">
                             {table.order.items.map(i => `${i.cantidad}x ${i.nombre}`).join(', ')}
                           </div>
                         </div>
                       ) : (
-                        <div className="py-4 text-center text-[#A69B8F] text-xs">
-                          {isReservada ? 'Esperando llegada de clientes' : 'Mesa lista para abrir comanda'}
+                        <div className="py-3.5 text-center text-[#86868B] text-xs">
+                          {isReservada ? 'Esperando llegada de comensales' : 'Mesa lista para abrir comanda'}
                         </div>
                       )}
                     </div>
 
                     {/* Pie de Mesa con Monto y Acción */}
-                    <div className="pt-3 border-t border-[#F0EAE1] mt-2 flex items-center justify-between">
+                    <div className="pt-3 border-t border-black/[0.06] mt-2 flex items-center justify-between">
                       {table.order && table.order.subtotal > 0 ? (
                         <div>
-                          <span className="text-[9px] uppercase tracking-wider text-[#7A7067] block">Total actual:</span>
-                          <span className="font-mono font-bold text-sm text-[#6E1B24]">
+                          <span className="text-[10px] text-[#86868B] block">Consumo actual:</span>
+                          <span className="font-semibold text-sm text-[#1D1D1F]">
                             ${table.order.subtotal.toLocaleString('es-MX')} MXN
                           </span>
                         </div>
                       ) : (
-                        <span className="text-[10px] text-[#A69B8F]">Sin consumo aún</span>
+                        <span className="text-[11px] text-[#86868B]">Sin consumo</span>
                       )}
 
                       <button
@@ -1054,7 +1101,7 @@ export default function AdminDashboard({ onExit }) {
                           e.stopPropagation();
                           setSelectedTableForOrder(table);
                         }}
-                        className="px-3 py-1.5 rounded-xs bg-[#1C1613] hover:bg-[#6E1B24] text-white text-[10px] uppercase tracking-wider font-bold transition-colors cursor-pointer shadow-xs"
+                        className="px-3.5 py-1.5 rounded-full bg-[#1D1D1F] hover:bg-[#0071E3] text-white text-[11px] font-medium transition-colors cursor-pointer shadow-xs active:scale-[0.98]"
                       >
                         {table.order?.items?.length ? 'Ver Comanda' : 'Abrir Mesa'}
                       </button>
@@ -1075,25 +1122,25 @@ export default function AdminDashboard({ onExit }) {
           />
         )}
 
-        {/* PESTAÑA 3: LIBRO DE RESERVACIONES */}
+        {/* PESTAÑA 3: LIBRO DE RESERVACIONES (ESTILO APPLE) */}
         {activeTab === 'reservas' && (
           <div className="space-y-6">
             
-            {/* Barra de Filtros */}
-            <div className="bg-white p-4 border border-[#E3D8C5] shadow-xs flex flex-col md:flex-row items-center justify-between gap-4">
+            {/* Barra de Filtros Estilo Apple */}
+            <div className="bg-white rounded-2xl p-4 sm:p-5 border border-black/[0.06] shadow-[0_2px_12px_rgba(0,0,0,0.03)] flex flex-col md:flex-row items-center justify-between gap-4">
               <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
                 <div className="flex items-center gap-2">
-                  <label className="text-xs uppercase tracking-wider text-[#6B635E] font-medium">Fecha:</label>
+                  <label className="text-[11px] uppercase tracking-wider text-[#86868B] font-semibold">Fecha:</label>
                   <input
                     type="date"
                     value={selectedDate}
                     onChange={(e) => setSelectedDate(e.target.value)}
-                    className="bg-[#FAF7F2] border border-[#DCD2C0] px-3 py-1.5 text-xs text-[#221E1C] rounded-xs focus:outline-none focus:border-[#6E1B24]"
+                    className="bg-[#F5F5F7] border border-black/10 px-3.5 py-1.5 text-xs text-[#1D1D1F] rounded-xl focus:outline-none focus:bg-white focus:border-[#0071E3]"
                   />
                   {selectedDate && (
                     <button
                       onClick={() => setSelectedDate('')}
-                      className="text-[11px] text-[#6E1B24] underline cursor-pointer"
+                      className="text-[11px] text-[#0071E3] hover:underline cursor-pointer font-medium"
                     >
                       Ver todas
                     </button>
@@ -1101,11 +1148,11 @@ export default function AdminDashboard({ onExit }) {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <label className="text-xs uppercase tracking-wider text-[#6B635E] font-medium">Estado:</label>
+                  <label className="text-[11px] uppercase tracking-wider text-[#86868B] font-semibold">Estado:</label>
                   <select
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value)}
-                    className="bg-[#FAF7F2] border border-[#DCD2C0] px-3 py-1.5 text-xs text-[#221E1C] rounded-xs focus:outline-none focus:border-[#6E1B24]"
+                    className="bg-[#F5F5F7] border border-black/10 px-3.5 py-1.5 text-xs text-[#1D1D1F] rounded-xl focus:outline-none focus:bg-white focus:border-[#0071E3] cursor-pointer"
                   >
                     <option value="TODAS">Todos los estados</option>
                     <option value="CONFIRMADA">Confirmadas</option>
@@ -1118,128 +1165,131 @@ export default function AdminDashboard({ onExit }) {
 
               {/* Búsqueda por nombre o teléfono */}
               <div className="relative w-full md:w-72">
-                <Search size={14} className="absolute left-3 top-2.5 text-[#8A8077]" />
+                <Search size={14} className="absolute left-3.5 top-2.5 text-[#86868B]" />
                 <input
                   type="text"
-                  placeholder="Buscar por cliente, teléfono o código..."
+                  placeholder="Buscar por cliente o teléfono..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full bg-[#FAF7F2] border border-[#DCD2C0] pl-9 pr-3 py-1.5 text-xs text-[#221E1C] rounded-xs focus:outline-none focus:border-[#6E1B24]"
+                  className="w-full bg-[#F5F5F7] border border-black/10 pl-9 pr-3.5 py-1.5 text-xs text-[#1D1D1F] rounded-full focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#0071E3]/20"
                 />
               </div>
             </div>
 
-            {/* Tabla / Tarjetas de Reservaciones */}
-            <div className="bg-white border border-[#E3D8C5] shadow-sm overflow-hidden">
-              <div className="p-4 border-b border-[#EAE3D6] flex items-center justify-between">
-                <h3 className="font-serif-luxury text-xl font-semibold text-[#1C1816]">
-                  {selectedDate ? `Reservas para el día ${selectedDate}` : 'Todas las Reservaciones Registradas'}
-                </h3>
-                <span className="text-xs text-[#6B635E]">
-                  Mostrando <b>{filteredReservations.length}</b> reservas
+            {/* Tabla de Reservaciones Estilo Apple */}
+            <div className="bg-white rounded-2xl border border-black/[0.06] shadow-[0_2px_12px_rgba(0,0,0,0.03)] overflow-hidden">
+              <div className="px-6 py-4 border-b border-black/[0.06] flex items-center justify-between">
+                <div>
+                  <h3 className="text-base font-semibold text-[#1D1D1F] tracking-tight">
+                    {selectedDate ? `Reservas para el día ${selectedDate}` : 'Todas las Reservaciones Registradas'}
+                  </h3>
+                  <p className="text-[11px] text-[#86868B]">
+                    Libro de mesa y comensales en vivo
+                  </p>
+                </div>
+                <span className="text-xs text-[#86868B] px-3 py-1 bg-black/[0.04] rounded-full font-medium">
+                  <b>{filteredReservations.length}</b> reservas
                 </span>
               </div>
 
               {loading ? (
-                <p className="text-center text-xs text-[#8A8077] py-16">Cargando libro de reservas...</p>
+                <p className="text-center text-xs text-[#86868B] py-16">Cargando libro de reservas...</p>
               ) : filteredReservations.length === 0 ? (
                 <div className="text-center py-16 px-4">
-                  <Calendar size={36} className="text-[#D8CFC2] mx-auto mb-2" />
-                  <p className="text-sm font-serif-luxury text-[#463E38]">No hay reservaciones registradas para este filtro.</p>
-                  <p className="text-xs text-[#8A8077] mt-1">Pruebe seleccionando otra fecha o borre los filtros.</p>
+                  <Calendar size={36} className="text-[#86868B]/40 mx-auto mb-2" />
+                  <p className="text-sm font-semibold text-[#1D1D1F]">No hay reservaciones registradas para este filtro.</p>
+                  <p className="text-xs text-[#86868B] mt-1">Prueba seleccionando otra fecha o borra los filtros.</p>
                 </div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs">
-                    <thead className="bg-[#FAF7F2] border-b border-[#EAE3D6] text-[10px] uppercase tracking-wider text-[#6B635E]">
+                    <thead className="bg-[#F5F5F7] border-b border-black/[0.06] text-[10px] uppercase tracking-wider font-semibold text-[#86868B]">
                       <tr>
-                        <th className="py-3 px-4 font-semibold">Hora</th>
-                        <th className="py-3 px-4 font-semibold">Cliente & Contacto</th>
-                        <th className="py-3 px-4 font-semibold text-center">Personas</th>
-                        <th className="py-3 px-4 font-semibold">Notas / Ocasión</th>
-                        <th className="py-3 px-4 font-semibold">Código</th>
-                        <th className="py-3 px-4 font-semibold">Estado</th>
-                        <th className="py-3 px-4 font-semibold text-right">Acciones de Piso</th>
+                        <th className="py-3 px-6">Hora</th>
+                        <th className="py-3 px-4">Cliente & Contacto</th>
+                        <th className="py-3 px-4 text-center">Personas</th>
+                        <th className="py-3 px-4">Notas / Ocasión</th>
+                        <th className="py-3 px-4">Código</th>
+                        <th className="py-3 px-4">Estado</th>
+                        <th className="py-3 px-6 text-right">Acciones</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[#EAE3D6]">
+                    <tbody className="divide-y divide-black/[0.04]">
                       {filteredReservations.map((r) => {
                         const isCanceled = r.estado === 'CANCELADA';
-                        const isSeated = r.estado === 'EN MESA';
-                        const isDone = r.estado === 'COMPLETADA';
 
                         return (
-                          <tr key={r.id} className={`hover:bg-[#FDFBF7] transition-colors ${isCanceled ? 'opacity-50' : ''}`}>
+                          <tr key={r.id} className={`hover:bg-[#F5F5F7]/50 transition-colors ${isCanceled ? 'opacity-50' : ''}`}>
                             
                             {/* Hora */}
-                            <td className="py-4 px-4 whitespace-nowrap">
-                              <span className="font-serif-luxury text-base font-bold text-[#6E1B24] block">
+                            <td className="py-4 px-6 whitespace-nowrap">
+                              <span className="text-sm font-semibold text-[#1D1D1F] block">
                                 {r.hora?.substring(0, 5)} hrs
                               </span>
-                              <span className="text-[10px] text-[#8A8077]">{r.fecha}</span>
+                              <span className="text-[11px] text-[#86868B]">{r.fecha}</span>
                             </td>
 
                             {/* Cliente & Teléfono */}
                             <td className="py-4 px-4">
-                              <span className="font-semibold text-sm text-[#1C1816] block">{r.nombre_cliente}</span>
+                              <span className="font-semibold text-sm text-[#1D1D1F] block">{r.nombre_cliente}</span>
                               <a
                                 href={`https://wa.me/${r.telefono_cliente?.replace(/[^0-9]/g, '')}?text=Hola%20${encodeURIComponent(r.nombre_cliente)},%20le%20escribimos%20de%20Porto%20Brezza%20con%20relación%20a%20su%20reserva%20${r.codigo_reserva}`}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="text-[11px] text-[#1A382B] hover:text-[#25D366] font-medium inline-flex items-center gap-1 mt-0.5"
+                                className="text-[11px] text-[#0071E3] hover:underline font-medium inline-flex items-center gap-1 mt-0.5"
                                 title="Contactar por WhatsApp"
                               >
-                                <Phone size={11} className="text-[#25D366]" /> {r.telefono_cliente}
+                                <Phone size={11} className="text-[#34C759]" /> {r.telefono_cliente}
                               </a>
                             </td>
 
                             {/* Personas */}
                             <td className="py-4 px-4 text-center">
-                              <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-[#FAF7F2] border border-[#DCD2C0] font-serif-luxury font-bold text-sm text-[#1C1816]">
+                              <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-[#F5F5F7] font-semibold text-xs text-[#1D1D1F] border border-black/[0.04]">
                                 {r.personas}
                               </span>
                             </td>
 
                             {/* Notas */}
-                            <td className="py-4 px-4 max-w-xs text-xs text-[#5E554E] italic">
+                            <td className="py-4 px-4 max-w-xs text-xs text-[#86868B] italic">
                               {r.notas || 'Sin notas especiales'}
                             </td>
 
                             {/* Código */}
                             <td className="py-4 px-4 whitespace-nowrap">
-                              <span className="font-mono text-xs font-semibold px-2 py-1 bg-[#FAF7F2] border border-[#E0D8C8] text-[#6E1B24]">
+                              <span className="font-mono text-xs font-semibold px-2 py-0.5 bg-[#F5F5F7] rounded-md text-[#1D1D1F] border border-black/[0.04]">
                                 #{r.codigo_reserva}
                               </span>
                             </td>
 
                             {/* Estado con Badge */}
                             <td className="py-4 px-4 whitespace-nowrap">
-                              <span className={`text-[10px] uppercase tracking-wider font-semibold px-2.5 py-1 rounded-xs inline-block ${
-                                r.estado === 'CONFIRMADA' ? 'bg-[#3E7D5C]/15 text-[#1A382B] border border-[#3E7D5C]/30' :
-                                r.estado === 'EN MESA' ? 'bg-[#D4B26F]/20 text-[#8F6A1E] border border-[#D4B26F]/40' :
-                                r.estado === 'COMPLETADA' ? 'bg-slate-200 text-slate-700' :
-                                'bg-[#EF4444]/10 text-[#EF4444] border border-[#EF4444]/20'
+                              <span className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full inline-block ${
+                                r.estado === 'CONFIRMADA' ? 'bg-[#34C759]/10 text-[#34C759]' :
+                                r.estado === 'EN MESA' ? 'bg-[#0071E3]/10 text-[#0071E3]' :
+                                r.estado === 'COMPLETADA' ? 'bg-black/5 text-[#86868B]' :
+                                'bg-[#FF3B30]/10 text-[#FF3B30]'
                               }`}>
                                 {r.estado}
                               </span>
                             </td>
 
                             {/* Acciones de cambio de estado y Sentar en Mesa */}
-                            <td className="py-4 px-4 text-right whitespace-nowrap space-x-1.5">
+                            <td className="py-4 px-6 text-right whitespace-nowrap space-x-1.5">
                               {r.estado !== 'EN MESA' && r.estado !== 'CANCELADA' && r.estado !== 'COMPLETADA' && (
                                 <button
                                   onClick={() => handleSeatReservation(r)}
-                                  className="px-3 py-1 bg-[#6E1B24] hover:bg-[#58131B] text-white text-[10px] uppercase tracking-wider font-bold rounded-xs transition-colors cursor-pointer shadow-xs inline-flex items-center gap-1"
+                                  className="px-3.5 py-1.5 bg-[#0071E3] hover:bg-[#0077ED] text-white text-[11px] font-medium rounded-full transition-colors cursor-pointer shadow-xs inline-flex items-center gap-1 active:scale-[0.98]"
                                   title="Sentar comensal en mesa física y abrir comanda"
                                 >
-                                  <Utensils size={10} /> Sentar en Mesa
+                                  <Utensils size={11} /> Sentar en Mesa
                                 </button>
                               )}
 
                               {r.estado === 'EN MESA' && (
                                 <button
                                   onClick={() => handleUpdateStatus(r.id, 'COMPLETADA')}
-                                  className="px-2.5 py-1 bg-[#241D18] hover:bg-black text-white text-[10px] uppercase tracking-wider font-semibold rounded-xs transition-colors cursor-pointer"
+                                  className="px-3 py-1.5 bg-[#1D1D1F] hover:bg-black text-white text-[11px] font-medium rounded-full transition-colors cursor-pointer"
                                   title="Marcar como finalizada"
                                 >
                                   Finalizar
@@ -1249,7 +1299,7 @@ export default function AdminDashboard({ onExit }) {
                               {r.estado !== 'CANCELADA' && r.estado !== 'COMPLETADA' && (
                                 <button
                                   onClick={() => handleUpdateStatus(r.id, 'CANCELADA')}
-                                  className="px-2.5 py-1 bg-white hover:bg-red-50 text-[#EF4444] border border-red-200 text-[10px] uppercase tracking-wider font-semibold rounded-xs transition-colors cursor-pointer"
+                                  className="px-3 py-1.5 bg-black/[0.04] hover:bg-red-50 text-[#86868B] hover:text-[#FF3B30] text-[11px] font-medium rounded-full transition-colors cursor-pointer"
                                   title="Cancelar reserva"
                                 >
                                   Cancelar
@@ -1268,284 +1318,223 @@ export default function AdminDashboard({ onExit }) {
           </div>
         )}
 
-        {/* PESTAÑA 4: GESTOR DE CARTA & INSUMOS CRÍTICOS */}
+        {/* PESTAÑA 4: GESTOR DE CARTA & PRECIOS (ESTILO APPLE) */}
         {activeTab === 'menu' && (
-          <div className="space-y-8">
+          <div className="space-y-6">
             
-            {/* Control de Insumos Críticos (Burrata, Masas, Cava) */}
-            <div className="bg-white p-6 border border-[#E3D8C5] shadow-xs rounded-xs">
-              <div className="flex items-center gap-2 mb-2">
-                <Flame className="text-[#B88E3E]" size={20} />
-                <h3 className="font-serif-luxury text-xl font-bold text-[#1C1816]">
-                  Control de Insumos Críticos del Turno
-                </h3>
-              </div>
-              <p className="text-xs text-[#7A7067] mb-6 max-w-2xl font-light">
-                Monitoreo en tiempo real de porciones limitadas. Al agotar un insumo, el personal de piso y el Concierge de IA son prevenidos inmediatamente.
-              </p>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {criticalStock.map(st => {
-                  const isLow = st.restante <= st.minAlerta;
-                  return (
-                    <div 
-                      key={st.id} 
-                      className={`p-4 rounded-xs border transition-all ${
-                        isLow ? 'bg-[#FEF2F2] border-[#EF4444]' : 'bg-[#FAF7F2] border-[#E3DBD0]'
-                      }`}
-                    >
-                      <div className="flex justify-between items-start mb-2">
-                        <h4 className="font-serif-luxury font-bold text-sm text-[#1C1816]">
-                          {st.nombre}
-                        </h4>
-                        {isLow && (
-                          <span className="px-2 py-0.5 text-[9px] uppercase font-bold tracking-wider bg-[#EF4444] text-white rounded-xs">
-                            Bajo Stock
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="flex items-baseline justify-between mb-3">
-                        <span className="text-xs text-[#7A7067]">Disponibles para hoy:</span>
-                        <span className={`font-serif-luxury text-2xl font-bold ${isLow ? 'text-[#EF4444]' : 'text-[#1A382B]'}`}>
-                          {st.restante} <span className="text-xs font-sans font-normal text-[#7A7067]">/ {st.total} {st.unidad}</span>
-                        </span>
-                      </div>
-
-                      <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#EAE3D6]">
-                        <button
-                          onClick={() => handleAdjustStock(st.id, -1)}
-                          className="w-7 h-7 rounded-xs bg-white border border-[#DDD5C7] text-[#1C1816] hover:bg-[#F2ECE1] font-bold text-xs flex items-center justify-center cursor-pointer"
-                        >
-                          -1
-                        </button>
-                        <button
-                          onClick={() => handleAdjustStock(st.id, 1)}
-                          className="w-7 h-7 rounded-xs bg-white border border-[#DDD5C7] text-[#1C1816] hover:bg-[#F2ECE1] font-bold text-xs flex items-center justify-center cursor-pointer"
-                        >
-                          +1
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Gestor de Carta & Modificación de Precios */}
-            <div className="space-y-6">
-              
-              {/* Cabecera del Gestor con Acción para Agregar Platillo */}
-              <div className="bg-white p-5 sm:p-6 border border-[#E3D8C5] shadow-xs rounded-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <Utensils className="text-[#6E1B24]" size={20} />
-                    <h3 className="font-serif-luxury text-2xl font-bold text-[#1C1816]">
-                      Gestor de Carta & Modificación de Precios
-                    </h3>
+            {/* Cabecera del Gestor con Acción para Agregar Platillo */}
+            <div className="bg-white rounded-2xl p-5 sm:p-6 border border-black/[0.06] shadow-[0_2px_12px_rgba(0,0,0,0.03)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-blue-50 text-[#0071E3] flex items-center justify-center">
+                    <Wine size={16} />
                   </div>
-                  <p className="text-xs text-[#6B635E] mt-1 font-light max-w-xl">
-                    Edite precios, descripciones y disponibilidad de platillos en tiempo real. Los cambios se sincronizan al instante en la carta web y con el Concierge de IA.
-                  </p>
+                  <h3 className="text-xl font-semibold tracking-tight text-[#1D1D1F]">
+                    Catálogo de Carta & Precios
+                  </h3>
                 </div>
+                <p className="text-xs text-[#86868B] mt-1 max-w-xl font-normal leading-relaxed">
+                  Modifica platillos, precios, descripciones y fotografías en tiempo real. Los cambios se sincronizan al instante en la carta web y con el Concierge de IA.
+                </p>
+              </div>
 
-                <div className="flex items-center gap-2.5 w-full sm:w-auto">
+              <div className="flex items-center gap-2.5 w-full sm:w-auto">
+                <button
+                  onClick={() => setEditingDish({
+                    isNew: true,
+                    nombre: '',
+                    precio: '',
+                    categoria: 'Pizzas Artesanales',
+                    descripcion: '',
+                    disponible: true
+                  })}
+                  className="w-full sm:w-auto px-5 py-2.5 bg-[#0071E3] hover:bg-[#0077ED] text-white text-xs font-semibold rounded-full transition-all cursor-pointer shadow-xs flex items-center justify-center gap-1.5 active:scale-[0.98]"
+                >
+                  <Plus size={14} /> Nuevo Platillo
+                </button>
+              </div>
+            </div>
+
+            {/* Barra de Filtros por Categoría y Búsqueda */}
+            <div className="bg-white rounded-2xl p-4 sm:p-5 border border-black/[0.06] shadow-[0_2px_12px_rgba(0,0,0,0.03)] flex flex-col md:flex-row items-center justify-between gap-3">
+              {/* Categorías Apple */}
+              <div className="bg-[#E5E5EA]/60 p-1 rounded-xl inline-flex flex-wrap gap-1 border border-black/[0.04] w-full md:w-auto">
+                {['TODAS', 'Pizzas Artesanales', 'Pastas & Especialidades', 'Focaccias', 'Dolci', 'Bebidas & Vinos'].map(cat => (
                   <button
-                    onClick={() => setEditingDish({
-                      isNew: true,
-                      nombre: '',
-                      precio: '',
-                      categoria: 'Pizzas Artesanales',
-                      descripcion: '',
-                      disponible: true
-                    })}
-                    className="w-full sm:w-auto px-4 py-2.5 bg-[#6E1B24] hover:bg-[#58131B] text-white text-xs uppercase tracking-wider font-bold rounded-xs transition-colors cursor-pointer shadow-sm flex items-center justify-center gap-2"
+                    key={cat}
+                    onClick={() => setMenuCategoryFilter(cat)}
+                    className={`px-3 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                      menuCategoryFilter === cat
+                        ? 'bg-white text-[#1D1D1F] shadow-xs'
+                        : 'text-[#86868B] hover:text-[#1D1D1F]'
+                    }`}
                   >
-                    <Plus size={14} /> Nuevo Platillo
+                    {cat}
                   </button>
-                </div>
+                ))}
               </div>
 
-              {/* Barra de Filtros por Categoría y Búsqueda */}
-              <div className="bg-[#FAF7F2] p-4 border border-[#E0D8C8] rounded-xs flex flex-col md:flex-row items-center justify-between gap-3">
-                {/* Categorías */}
-                <div className="flex flex-wrap items-center gap-1.5 w-full md:w-auto text-xs">
-                  {['TODAS', 'Pizzas Artesanales', 'Pastas & Especialidades', 'Focaccias', 'Dolci', 'Bebidas & Vinos'].map(cat => (
-                    <button
-                      key={cat}
-                      onClick={() => setMenuCategoryFilter(cat)}
-                      className={`px-3 py-1.5 rounded-xs uppercase tracking-wider font-semibold transition-colors cursor-pointer text-[11px] ${
-                        menuCategoryFilter === cat
-                          ? 'bg-[#1A382B] text-white shadow-xs'
-                          : 'bg-white text-[#524943] hover:bg-[#F2ECE1] border border-[#DDD5C7]'
-                      }`}
-                    >
-                      {cat}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Buscador */}
-                <div className="w-full md:w-72 relative">
-                  <Search size={14} className="absolute left-3 top-2.5 text-[#8A8077]" />
-                  <input
-                    type="text"
-                    placeholder="Buscar platillo o ingrediente..."
-                    value={menuSearchTerm}
-                    onChange={(e) => setMenuSearchTerm(e.target.value)}
-                    className="w-full pl-8 pr-3 py-2 text-xs bg-white border border-[#DDD5C7] rounded-xs focus:outline-none focus:border-[#6E1B24]"
-                  />
-                  {menuSearchTerm && (
-                    <button
-                      onClick={() => setMenuSearchTerm('')}
-                      className="absolute right-2.5 top-2.5 text-[#8A8077] hover:text-black text-xs"
-                    >
-                      ✕
-                    </button>
-                  )}
-                </div>
+              {/* Buscador Estilo Apple */}
+              <div className="w-full md:w-72 relative">
+                <Search size={14} className="absolute left-3.5 top-2.5 text-[#86868B]" />
+                <input
+                  type="text"
+                  placeholder="Buscar platillo o ingrediente..."
+                  value={menuSearchTerm}
+                  onChange={(e) => setMenuSearchTerm(e.target.value)}
+                  className="w-full pl-9 pr-8 py-2 text-xs bg-[#F5F5F7] border border-black/[0.04] rounded-full focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#0071E3]/20 transition-all text-[#1D1D1F]"
+                />
+                {menuSearchTerm && (
+                  <button
+                    onClick={() => setMenuSearchTerm('')}
+                    className="absolute right-3 top-2.5 text-[#86868B] hover:text-[#1D1D1F] text-xs cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                )}
               </div>
+            </div>
 
-              {/* Grid de Platillos de la Carta */}
-              {filteredMenuItems.length === 0 ? (
-                <div className="text-center py-16 bg-white border border-[#E3DBD0] rounded-xs text-[#7A7067]">
-                  <Utensils size={32} className="mx-auto mb-2 opacity-30 text-[#6E1B24]" />
-                  <p className="text-sm font-semibold">No se encontraron platillos con los filtros actuales.</p>
-                  <p className="text-xs text-[#8A8077] mt-1">Pruebe limpiando el buscador o cambiando de categoría.</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {filteredMenuItems.map((item) => (
-                    <div
-                      key={item.id}
-                      className={`p-5 rounded-xs border transition-all flex flex-col justify-between ${
-                        item.disponible
-                          ? 'bg-white border-[#E0D8C8] shadow-xs hover:border-[#B88E3E]/60'
-                          : 'bg-[#F4EFE6] border-[#D0C6B4] opacity-75'
-                      }`}
-                    >
-                      <div>
-                        {/* Fotografía de portada si tiene imagen */}
-                        {item.imagen_url && (
-                          <div className="mb-3 -mt-1 -mx-1 rounded-xs overflow-hidden h-28 border border-[#EAE3D6] relative bg-[#FAF7F2]">
-                            <img
-                              src={item.imagen_url}
-                              alt={item.nombre}
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                            />
-                            <div className="absolute top-2 right-2 px-2 py-0.5 bg-black/60 backdrop-blur-xs text-white text-[9px] uppercase tracking-wider font-semibold rounded-xs">
-                              {item.categoria}
-                            </div>
-                          </div>
-                        )}
-
-                        <div className="flex items-start justify-between gap-3 mb-2">
-                          <div className="flex-1 min-w-0">
-                            {!item.imagen_url && (
-                              <span className="text-[9px] uppercase tracking-widest text-[#B88E3E] font-semibold block truncate">
-                                {item.categoria}
-                              </span>
-                            )}
-                            <h4 className="font-serif-luxury text-lg font-bold text-[#1C1816] mt-0.5 truncate leading-snug">
-                              {item.nombre}
-                            </h4>
-                          </div>
-
-                          {/* Caja de Precio con Edición Rápida */}
-                          <div className="shrink-0 text-right">
-                            {quickPriceEditId === item.id ? (
-                              <div className="flex items-center gap-1 bg-[#FAF7F2] p-1 border-2 border-[#6E1B24] rounded-xs shadow-sm">
-                                <span className="text-xs text-[#7A7067] font-bold">$</span>
-                                <input
-                                  type="number"
-                                  step="1"
-                                  min="0"
-                                  value={quickPriceValue}
-                                  onChange={(e) => setQuickPriceValue(e.target.value)}
-                                  className="w-16 px-1 py-0.5 text-xs font-mono font-bold bg-white border border-[#DDD5C7] rounded-xs focus:outline-none"
-                                  autoFocus
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter') handleQuickPriceSave(item.id);
-                                    if (e.key === 'Escape') setQuickPriceEditId(null);
-                                  }}
-                                />
-                                <button
-                                  onClick={() => handleQuickPriceSave(item.id)}
-                                  className="p-1 bg-[#1A382B] text-white hover:bg-[#122A20] rounded-xs cursor-pointer"
-                                  title="Guardar precio"
-                                >
-                                  <Check size={12} />
-                                </button>
-                                <button
-                                  onClick={() => setQuickPriceEditId(null)}
-                                  className="p-1 text-[#7A7067] hover:text-black cursor-pointer"
-                                  title="Cancelar"
-                                >
-                                  <X size={12} />
-                                </button>
-                              </div>
-                            ) : (
-                              <div
-                                onClick={() => {
-                                  setQuickPriceEditId(item.id);
-                                  setQuickPriceValue(item.precio);
-                                }}
-                                className="group/price cursor-pointer flex items-center gap-1.5 px-2.5 py-1 rounded-xs bg-[#FAF7F2] hover:bg-[#F2ECE1] border border-dashed border-[#D8CFBF] hover:border-[#6E1B24] transition-all"
-                                title="Clic para modificar precio rápidamente"
-                              >
-                                <span className="font-serif-luxury font-bold text-lg text-[#6E1B24]">
-                                  ${Number(item.precio).toFixed(2)}
-                                </span>
-                                <Edit3 size={11} className="text-[#8A8077] opacity-60 group-hover/price:opacity-100 transition-opacity" />
-                              </div>
-                            )}
-                            <span className="text-[9px] uppercase tracking-wider text-[#8A8077] block mt-0.5">MXN</span>
+            {/* Grid de Platillos de la Carta - Tarjetas Apple */}
+            {filteredMenuItems.length === 0 ? (
+              <div className="text-center py-16 bg-white rounded-2xl border border-black/[0.06] text-[#86868B]">
+                <Utensils size={32} className="mx-auto mb-2 opacity-30 text-[#0071E3]" />
+                <p className="text-sm font-semibold text-[#1D1D1F]">No se encontraron platillos con los filtros actuales.</p>
+                <p className="text-xs text-[#86868B] mt-1">Prueba limpiando el buscador o cambiando de categoría.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredMenuItems.map((item) => (
+                  <div
+                    key={item.id}
+                    className={`p-4 sm:p-5 rounded-2xl border transition-all flex flex-col justify-between ${
+                      item.disponible
+                        ? 'bg-white border-black/[0.06] shadow-[0_2px_12px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)] hover:-translate-y-0.5'
+                        : 'bg-[#F5F5F7] border-black/[0.04] opacity-75'
+                    }`}
+                  >
+                    <div>
+                      {/* Fotografía de portada si tiene imagen */}
+                      {item.imagen_url && (
+                        <div className="mb-3 rounded-xl overflow-hidden h-32 border border-black/[0.04] relative bg-[#F5F5F7]">
+                          <img
+                            src={item.imagen_url}
+                            alt={item.nombre}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          />
+                          <div className="absolute top-2 right-2 px-2.5 py-0.5 bg-black/60 backdrop-blur-md text-white text-[10px] font-medium rounded-full">
+                            {item.categoria}
                           </div>
                         </div>
+                      )}
 
-                        <p className="text-xs text-[#6B635E] italic font-light mb-4 line-clamp-2 leading-relaxed">
-                          {item.descripcion || 'Sin descripción culinaria.'}
-                        </p>
+                      <div className="flex items-start justify-between gap-3 mb-2">
+                        <div className="flex-1 min-w-0">
+                          {!item.imagen_url && (
+                            <span className="text-[10px] font-semibold uppercase tracking-wider text-[#86868B] block truncate">
+                              {item.categoria}
+                            </span>
+                          )}
+                          <h4 className="font-semibold text-base text-[#1D1D1F] mt-0.5 truncate leading-snug">
+                            {item.nombre}
+                          </h4>
+                        </div>
+
+                        {/* Caja de Precio con Edición Rápida en píldora Apple */}
+                        <div className="shrink-0 text-right">
+                          {quickPriceEditId === item.id ? (
+                            <div className="flex items-center gap-1 bg-[#F5F5F7] p-1 border-2 border-[#0071E3] rounded-full shadow-xs">
+                              <span className="text-xs text-[#86868B] font-bold pl-1.5">$</span>
+                              <input
+                                type="number"
+                                step="1"
+                                min="0"
+                                value={quickPriceValue}
+                                onChange={(e) => setQuickPriceValue(e.target.value)}
+                                className="w-14 px-1 py-0.5 text-xs font-bold bg-transparent focus:outline-none text-[#1D1D1F]"
+                                autoFocus
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') handleQuickPriceSave(item.id);
+                                  if (e.key === 'Escape') setQuickPriceEditId(null);
+                                }}
+                              />
+                              <button
+                                onClick={() => handleQuickPriceSave(item.id)}
+                                className="w-5 h-5 rounded-full bg-[#0071E3] text-white flex items-center justify-center cursor-pointer shadow-xs"
+                                title="Guardar precio"
+                              >
+                                <Check size={11} />
+                              </button>
+                              <button
+                                onClick={() => setQuickPriceEditId(null)}
+                                className="w-5 h-5 rounded-full text-[#86868B] hover:text-black flex items-center justify-center cursor-pointer"
+                                title="Cancelar"
+                              >
+                                <X size={11} />
+                              </button>
+                            </div>
+                          ) : (
+                            <div
+                              onClick={() => {
+                                setQuickPriceEditId(item.id);
+                                setQuickPriceValue(item.precio);
+                              }}
+                              className="group/price cursor-pointer flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#F5F5F7] hover:bg-[#E5E5EA] border border-black/[0.04] transition-all"
+                              title="Clic para modificar precio rápidamente"
+                            >
+                              <span className="font-semibold text-sm text-[#1D1D1F]">
+                                ${Number(item.precio).toFixed(2)}
+                              </span>
+                              <Edit3 size={11} className="text-[#86868B] opacity-60 group-hover/price:opacity-100 transition-opacity" />
+                            </div>
+                          )}
+                          <span className="text-[10px] text-[#86868B] block mt-0.5 font-medium">MXN</span>
+                        </div>
                       </div>
 
-                      {/* Pie de la tarjeta con acciones */}
-                      <div className="pt-3 border-t border-[#EAE3D6] flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                          <span className={`text-[10px] font-semibold uppercase tracking-wider ${item.disponible ? 'text-[#3E7D5C]' : 'text-[#EF4444]'}`}>
-                            {item.disponible ? '● En Carta' : '○ Pausado'}
-                          </span>
-                          <button
-                            onClick={() => handleToggleDishAvailability(item.id, item.disponible)}
-                            className="text-[10px] text-[#8A8077] hover:text-[#1C1816] underline cursor-pointer"
-                          >
-                            {item.disponible ? 'Agotar' : 'Activar'}
-                          </button>
-                        </div>
+                      <p className="text-xs text-[#86868B] line-clamp-2 leading-relaxed mb-4">
+                        {item.descripcion || 'Sin descripción culinaria.'}
+                      </p>
+                    </div>
 
-                        <div className="flex items-center gap-1.5">
-                          <button
-                            onClick={() => setEditingDish({ ...item, isNew: false })}
-                            className="px-2.5 py-1 text-xs font-semibold bg-[#1A382B] text-white hover:bg-[#122A20] rounded-xs transition-colors cursor-pointer flex items-center gap-1 shadow-xs"
-                            title="Editar nombre, precio, categoría y descripción"
-                          >
-                            <Edit3 size={11} /> Modificar
-                          </button>
+                    {/* Pie de la tarjeta con acciones Apple */}
+                    <div className="pt-3 border-t border-black/[0.06] flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className={`px-2.5 py-0.5 text-[10px] font-semibold rounded-full ${
+                          item.disponible ? 'bg-[#34C759]/10 text-[#34C759]' : 'bg-[#FF3B30]/10 text-[#FF3B30]'
+                        }`}>
+                          {item.disponible ? 'Disponible' : 'Agotado'}
+                        </span>
+                        <button
+                          onClick={() => handleToggleDishAvailability(item.id, item.disponible)}
+                          className="text-[11px] text-[#86868B] hover:text-[#1D1D1F] underline cursor-pointer"
+                        >
+                          {item.disponible ? 'Pausar' : 'Activar'}
+                        </button>
+                      </div>
 
-                          <button
-                            onClick={() => handleDeleteDish(item.id, item.nombre)}
-                            className="p-1 text-[#EF4444] hover:bg-red-50 rounded-xs transition-colors cursor-pointer border border-transparent hover:border-red-200"
-                            title="Eliminar de la carta"
-                          >
-                            <Trash2 size={13} />
-                          </button>
-                        </div>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => setEditingDish({ ...item, isNew: false })}
+                          className="px-3 py-1.5 text-xs font-medium bg-[#1D1D1F] text-white hover:bg-[#0071E3] rounded-full transition-colors cursor-pointer flex items-center gap-1 shadow-xs active:scale-[0.98]"
+                          title="Editar nombre, precio, categoría, foto y descripción"
+                        >
+                          <Edit3 size={11} /> Modificar
+                        </button>
+
+                        <button
+                          onClick={() => handleDeleteDish(item.id, item.nombre)}
+                          className="p-1.5 text-[#86868B] hover:text-[#FF3B30] hover:bg-[#FF3B30]/10 rounded-full transition-colors cursor-pointer"
+                          title="Eliminar de la carta"
+                        >
+                          <Trash2 size={13} />
+                        </button>
                       </div>
                     </div>
-                  ))}
-                </div>
-              )}
-
-            </div>
+                  </div>
+                ))}
+              </div>
+            )}
 
           </div>
         )}
@@ -1563,25 +1552,30 @@ export default function AdminDashboard({ onExit }) {
         />
       )}
 
-      {/* MODAL PARA CONFIGURAR / AÑADIR NUEVA MESA */}
+      {/* MODAL PARA CONFIGURAR / AÑADIR NUEVA MESA (ESTILO APPLE) */}
       {showAddTableModal && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-[#FAF7F2] w-full max-w-md rounded-sm shadow-2xl border border-[#D8CFC2] overflow-hidden">
-            <div className="bg-[#1C1613] text-white px-5 py-3.5 flex items-center justify-between border-b border-[#3A2E28]">
-              <h3 className="font-serif-luxury text-lg font-bold">
-                Configurar Nueva Mesa Física
-              </h3>
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-white/95 backdrop-blur-2xl w-full max-w-md rounded-3xl shadow-[0_25px_60px_rgba(0,0,0,0.15)] border border-black/[0.08] overflow-hidden">
+            <div className="px-6 py-4 flex items-center justify-between border-b border-black/[0.06]">
+              <div>
+                <h3 className="text-base font-semibold text-[#1D1D1F] tracking-tight">
+                  Nueva Mesa Física
+                </h3>
+                <p className="text-[11px] text-[#86868B]">
+                  Configura e incorpora una mesa a la sala
+                </p>
+              </div>
               <button
                 onClick={() => setShowAddTableModal(false)}
-                className="text-[#A69B8F] hover:text-white cursor-pointer"
+                className="w-7 h-7 rounded-full bg-black/5 hover:bg-black/10 flex items-center justify-center text-[#86868B] hover:text-[#1D1D1F] transition-colors cursor-pointer"
               >
-                ✕
+                <X size={14} />
               </button>
             </div>
 
-            <form onSubmit={handleAddNewTable} className="p-5 space-y-4">
+            <form onSubmit={handleAddNewTable} className="p-6 space-y-4">
               <div>
-                <label className="block text-xs uppercase tracking-wider text-[#635A53] font-bold mb-1">
+                <label className="block text-[11px] uppercase tracking-wider text-[#86868B] font-semibold mb-1.5">
                   Número o Identificador de Mesa
                 </label>
                 <input
@@ -1590,19 +1584,19 @@ export default function AdminDashboard({ onExit }) {
                   placeholder="Ej: 11, T7, VIP-1, B3..."
                   value={newTableNum}
                   onChange={(e) => setNewTableNum(e.target.value)}
-                  className="w-full bg-white border border-[#DDD5C7] px-3 py-2 text-xs text-[#1C1816] rounded-xs focus:outline-none focus:border-[#B88E3E]"
+                  className="w-full bg-[#F5F5F7] border border-black/10 px-3.5 py-2 text-xs text-[#1D1D1F] rounded-xl focus:bg-white focus:outline-none focus:border-[#0071E3] focus:ring-2 focus:ring-[#0071E3]/20 transition-all font-medium"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs uppercase tracking-wider text-[#635A53] font-bold mb-1">
+                  <label className="block text-[11px] uppercase tracking-wider text-[#86868B] font-semibold mb-1.5">
                     Zona del Restaurante
                   </label>
                   <select
                     value={newTableZone}
                     onChange={(e) => setNewTableZone(e.target.value)}
-                    className="w-full bg-white border border-[#DDD5C7] px-3 py-2 text-xs text-[#1C1816] rounded-xs focus:outline-none focus:border-[#B88E3E] cursor-pointer"
+                    className="w-full bg-[#F5F5F7] border border-black/10 px-3.5 py-2 text-xs text-[#1D1D1F] rounded-xl focus:bg-white focus:outline-none focus:border-[#0071E3] cursor-pointer"
                   >
                     <option value="Terraza">Terraza Panorámica</option>
                     <option value="Salón Principal">Salón Principal</option>
@@ -1611,13 +1605,13 @@ export default function AdminDashboard({ onExit }) {
                 </div>
 
                 <div>
-                  <label className="block text-xs uppercase tracking-wider text-[#635A53] font-bold mb-1">
+                  <label className="block text-[11px] uppercase tracking-wider text-[#86868B] font-semibold mb-1.5">
                     Capacidad (Personas)
                   </label>
                   <select
                     value={newTableCap}
                     onChange={(e) => setNewTableCap(Number(e.target.value))}
-                    className="w-full bg-white border border-[#DDD5C7] px-3 py-2 text-xs text-[#1C1816] rounded-xs focus:outline-none focus:border-[#B88E3E] cursor-pointer font-bold"
+                    className="w-full bg-[#F5F5F7] border border-black/10 px-3.5 py-2 text-xs text-[#1D1D1F] rounded-xl focus:bg-white focus:outline-none focus:border-[#0071E3] cursor-pointer font-semibold"
                   >
                     {[2, 3, 4, 5, 6, 8, 10, 12].map(n => (
                       <option key={n} value={n}>{n} personas</option>
@@ -1626,19 +1620,19 @@ export default function AdminDashboard({ onExit }) {
                 </div>
               </div>
 
-              <div className="pt-3 border-t border-[#E8DFCFC0] flex items-center justify-end gap-2">
+              <div className="pt-4 border-t border-black/[0.06] flex items-center justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setShowAddTableModal(false)}
-                  className="px-4 py-2 border border-[#DDD5C7] text-xs uppercase tracking-wider text-[#635A53] hover:bg-[#F2ECE1] rounded-xs cursor-pointer"
+                  className="px-4 py-2 text-xs font-medium text-[#86868B] hover:text-[#1D1D1F] hover:bg-black/5 rounded-full transition-colors cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-[#1A382B] hover:bg-[#122A20] text-white text-xs uppercase tracking-wider font-bold rounded-xs cursor-pointer shadow-xs"
+                  className="px-5 py-2 bg-[#0071E3] hover:bg-[#0077ED] text-white text-xs font-medium rounded-full cursor-pointer shadow-xs active:scale-[0.98]"
                 >
-                  Guardar Mesa en DB
+                  Guardar Mesa
                 </button>
               </div>
             </form>
@@ -1646,38 +1640,40 @@ export default function AdminDashboard({ onExit }) {
         </div>
       )}
 
-      {/* MODAL DE EDICIÓN O CREACIÓN DE PLATILLO Y PRECIO */}
+      {/* MODAL DE EDICIÓN O CREACIÓN DE PLATILLO Y PRECIO (ESTILO APPLE) */}
       {editingDish && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
-          <div className="bg-[#FAF7F2] w-full max-w-lg rounded-sm shadow-2xl border border-[#D8CFC2] overflow-hidden flex flex-col animate-in fade-in zoom-in-95">
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-in fade-in">
+          <div className="bg-white/95 backdrop-blur-2xl w-full max-w-lg rounded-3xl shadow-[0_25px_60px_rgba(0,0,0,0.15)] border border-black/[0.08] overflow-hidden flex flex-col my-8">
             
             {/* Header del Modal */}
-            <div className="bg-[#1C1613] text-white px-5 py-4 flex items-center justify-between border-b border-[#3A2E28]">
+            <div className="px-6 py-4 flex items-center justify-between border-b border-black/[0.06]">
               <div className="flex items-center gap-2.5">
-                <Utensils size={18} className="text-[#D4B26F]" />
+                <div className="w-8 h-8 rounded-xl bg-blue-50 text-[#0071E3] flex items-center justify-center">
+                  <Utensils size={15} />
+                </div>
                 <div>
-                  <h3 className="font-serif-luxury text-lg font-bold tracking-wide">
-                    {editingDish.isNew ? 'Registrar Nuevo Platillo en Carta' : 'Modificar Platillo & Precio'}
+                  <h3 className="text-base font-semibold text-[#1D1D1F] tracking-tight">
+                    {editingDish.isNew ? 'Nuevo Platillo en Carta' : 'Modificar Platillo & Precio'}
                   </h3>
-                  <p className="text-[10px] text-[#A69B8F] uppercase tracking-wider">
-                    {editingDish.isNew ? 'Nuevo item culinario' : `Editando: ${editingDish.nombre}`}
+                  <p className="text-[11px] text-[#86868B]">
+                    {editingDish.isNew ? 'Registro de nuevo ítem' : `Editando: ${editingDish.nombre}`}
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => setEditingDish(null)}
-                className="p-1.5 text-[#A69B8F] hover:text-white rounded-xs cursor-pointer"
+                className="w-7 h-7 rounded-full bg-black/5 hover:bg-black/10 flex items-center justify-center text-[#86868B] hover:text-[#1D1D1F] transition-colors cursor-pointer"
                 title="Cerrar"
               >
-                <X size={18} />
+                <X size={14} />
               </button>
             </div>
 
             {/* Formulario */}
-            <form onSubmit={handleSaveDish} className="p-5 sm:p-6 space-y-4">
+            <form onSubmit={handleSaveDish} className="p-6 space-y-4">
               {/* Nombre */}
               <div>
-                <label className="block text-[11px] uppercase tracking-wider font-bold text-[#5E554E] mb-1">
+                <label className="block text-[11px] uppercase tracking-wider font-semibold text-[#86868B] mb-1.5">
                   Nombre del Platillo *
                 </label>
                 <input
@@ -1686,18 +1682,18 @@ export default function AdminDashboard({ onExit }) {
                   placeholder="Ej. Pizza Quattro Formaggi D.O.P."
                   value={editingDish.nombre || ''}
                   onChange={(e) => setEditingDish({ ...editingDish, nombre: e.target.value })}
-                  className="w-full px-3.5 py-2 text-xs bg-white border border-[#DDD5C7] rounded-xs focus:outline-none focus:border-[#6E1B24] font-medium"
+                  className="w-full px-3.5 py-2 text-xs bg-[#F5F5F7] border border-black/10 rounded-xl focus:bg-white focus:outline-none focus:border-[#0071E3] focus:ring-2 focus:ring-[#0071E3]/20 font-medium text-[#1D1D1F]"
                 />
               </div>
 
               {/* Precio y Categoría */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[11px] uppercase tracking-wider font-bold text-[#6E1B24] mb-1 flex items-center gap-1">
-                    <DollarSign size={13} className="text-[#6E1B24]" /> Precio de Venta (MXN) *
+                  <label className="block text-[11px] uppercase tracking-wider font-semibold text-[#1D1D1F] mb-1.5 flex items-center gap-1">
+                    <DollarSign size={13} className="text-[#0071E3]" /> Precio de Venta (MXN) *
                   </label>
                   <div className="relative">
-                    <span className="absolute left-3 top-2 text-xs font-bold text-[#7A7067]">$</span>
+                    <span className="absolute left-3.5 top-2 text-xs font-semibold text-[#86868B]">$</span>
                     <input
                       type="number"
                       step="0.5"
@@ -1706,20 +1702,20 @@ export default function AdminDashboard({ onExit }) {
                       placeholder="340.00"
                       value={editingDish.precio !== undefined ? editingDish.precio : ''}
                       onChange={(e) => setEditingDish({ ...editingDish, precio: e.target.value })}
-                      className="w-full pl-7 pr-3.5 py-2 text-sm font-mono font-bold bg-white border-2 border-[#D8CFBF] focus:border-[#6E1B24] rounded-xs focus:outline-none text-[#1C1816]"
+                      className="w-full pl-7 pr-3.5 py-2 text-sm font-semibold bg-[#F5F5F7] border border-black/10 focus:bg-white focus:border-[#0071E3] focus:ring-2 focus:ring-[#0071E3]/20 rounded-xl focus:outline-none text-[#1D1D1F]"
                     />
                   </div>
-                  <span className="text-[9px] text-[#7A7067] mt-0.5 block">Sincronizado con carta web e IA</span>
+                  <span className="text-[10px] text-[#86868B] mt-0.5 block">Sincronizado con carta web e IA</span>
                 </div>
 
                 <div>
-                  <label className="block text-[11px] uppercase tracking-wider font-bold text-[#5E554E] mb-1">
+                  <label className="block text-[11px] uppercase tracking-wider font-semibold text-[#86868B] mb-1.5">
                     Categoría *
                   </label>
                   <select
                     value={editingDish.categoria || 'Pizzas Artesanales'}
                     onChange={(e) => setEditingDish({ ...editingDish, categoria: e.target.value })}
-                    className="w-full px-3.5 py-2 text-xs bg-white border border-[#DDD5C7] rounded-xs focus:outline-none focus:border-[#6E1B24] cursor-pointer"
+                    className="w-full px-3.5 py-2 text-xs bg-[#F5F5F7] border border-black/10 rounded-xl focus:bg-white focus:outline-none focus:border-[#0071E3] cursor-pointer text-[#1D1D1F]"
                   >
                     <option value="Pizzas Artesanales">Pizzas Artesanales</option>
                     <option value="Pastas & Especialidades">Pastas & Especialidades</option>
@@ -1733,7 +1729,7 @@ export default function AdminDashboard({ onExit }) {
 
               {/* Descripción e Ingredientes */}
               <div>
-                <label className="block text-[11px] uppercase tracking-wider font-bold text-[#5E554E] mb-1">
+                <label className="block text-[11px] uppercase tracking-wider font-semibold text-[#86868B] mb-1.5">
                   Descripción culinaria e Ingredientes
                 </label>
                 <textarea
@@ -1741,22 +1737,22 @@ export default function AdminDashboard({ onExit }) {
                   placeholder="Detalle de ingredientes, tiempo de fermentación, preparación al horno de leña..."
                   value={editingDish.descripcion || ''}
                   onChange={(e) => setEditingDish({ ...editingDish, descripcion: e.target.value })}
-                  className="w-full px-3.5 py-2 text-xs bg-white border border-[#DDD5C7] rounded-xs focus:outline-none focus:border-[#6E1B24] leading-relaxed"
+                  className="w-full px-3.5 py-2 text-xs bg-[#F5F5F7] border border-black/10 rounded-xl focus:bg-white focus:outline-none focus:border-[#0071E3] focus:ring-2 focus:ring-[#0071E3]/20 leading-relaxed text-[#1D1D1F]"
                 ></textarea>
               </div>
 
               {/* Fotografía del Platillo */}
-              <div className="bg-[#F6F1EA] p-3.5 rounded-xs border border-[#DDD5C7] space-y-3">
+              <div className="bg-[#F5F5F7] p-4 rounded-2xl border border-black/[0.04] space-y-3">
                 <div className="flex items-center justify-between">
-                  <label className="text-[11px] uppercase tracking-wider font-bold text-[#5E554E] flex items-center gap-1.5">
-                    <Camera size={13} className="text-[#6E1B24]" />
+                  <label className="text-[11px] uppercase tracking-wider font-semibold text-[#1D1D1F] flex items-center gap-1.5">
+                    <Camera size={13} className="text-[#0071E3]" />
                     Fotografía del Platillo
                   </label>
                   {editingDish.imagen_url && (
                     <button
                       type="button"
                       onClick={() => setEditingDish({ ...editingDish, imagen_url: '' })}
-                      className="text-[10px] text-red-600 hover:text-red-800 underline cursor-pointer"
+                      className="text-[11px] text-[#FF3B30] hover:underline cursor-pointer font-medium"
                     >
                       Quitar foto
                     </button>
@@ -1765,14 +1761,14 @@ export default function AdminDashboard({ onExit }) {
 
                 {/* Preview de la imagen si está seleccionada */}
                 {editingDish.imagen_url ? (
-                  <div className="relative rounded-xs overflow-hidden h-36 border border-[#DDD5C7] bg-white group">
+                  <div className="relative rounded-xl overflow-hidden h-36 border border-black/10 bg-white group">
                     <img
                       src={editingDish.imagen_url}
                       alt="Vista previa"
                       className="w-full h-full object-cover"
                     />
                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                      <label className="px-3 py-1.5 bg-white text-xs font-semibold text-[#1C1816] rounded-xs cursor-pointer hover:bg-gray-100 shadow-sm flex items-center gap-1">
+                      <label className="px-3.5 py-1.5 bg-white text-xs font-semibold text-[#1D1D1F] rounded-full cursor-pointer hover:bg-gray-100 shadow-md flex items-center gap-1.5">
                         <Upload size={12} /> Cambiar Foto
                         <input
                           type="file"
@@ -1784,12 +1780,12 @@ export default function AdminDashboard({ onExit }) {
                     </div>
                   </div>
                 ) : (
-                  <div className="border border-dashed border-[#C5BBAA] rounded-xs p-4 text-center bg-white/70">
-                    <Camera size={26} className="mx-auto text-[#A89D8E] mb-1.5" />
-                    <p className="text-xs text-[#5E554E] font-medium">Sube una fotografía del platillo</p>
-                    <p className="text-[10px] text-[#8A8077] mb-3">Desde tu computadora, celular o cámara (máx. 4MB)</p>
-                    <label className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-[#1A382B] text-white text-xs font-semibold rounded-xs cursor-pointer hover:bg-[#122A20] shadow-xs">
-                      <Upload size={12} /> Seleccionar Archivo / Foto
+                  <div className="border border-dashed border-black/15 rounded-xl p-5 text-center bg-white">
+                    <Camera size={26} className="mx-auto text-[#86868B] mb-1.5" />
+                    <p className="text-xs text-[#1D1D1F] font-medium">Sube una fotografía del platillo</p>
+                    <p className="text-[11px] text-[#86868B] mb-3">Desde tu dispositivo o cámara (máx. 4MB)</p>
+                    <label className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-[#0071E3] hover:bg-[#0077ED] text-white text-xs font-medium rounded-full cursor-pointer shadow-xs active:scale-[0.98]">
+                      <Upload size={12} /> Seleccionar Archivo
                       <input
                         type="file"
                         accept="image/*"
@@ -1801,22 +1797,22 @@ export default function AdminDashboard({ onExit }) {
                 )}
 
                 {/* Alternativa: URL o Galería rápida */}
-                <div className="space-y-2 pt-1 border-t border-[#E5DCD0]">
+                <div className="space-y-2 pt-2 border-t border-black/[0.06]">
                   <div>
-                    <span className="text-[10px] font-semibold text-[#7A7067] uppercase tracking-wider block mb-1">
-                      O pegar enlace de imagen web (URL):
+                    <span className="text-[10px] font-semibold text-[#86868B] uppercase tracking-wider block mb-1">
+                      O pegar enlace directo de imagen (URL):
                     </span>
                     <input
                       type="url"
                       placeholder="https://ejemplo.com/foto-pizza.jpg"
                       value={editingDish.imagen_url || ''}
                       onChange={(e) => setEditingDish({ ...editingDish, imagen_url: e.target.value })}
-                      className="w-full px-3 py-1.5 text-xs bg-white border border-[#DDD5C7] rounded-xs focus:outline-none focus:border-[#6E1B24]"
+                      className="w-full px-3 py-1.5 text-xs bg-white border border-black/10 rounded-xl focus:outline-none focus:border-[#0071E3] text-[#1D1D1F]"
                     />
                   </div>
 
                   <div>
-                    <span className="text-[10px] font-semibold text-[#7A7067] uppercase tracking-wider block mb-1">
+                    <span className="text-[10px] font-semibold text-[#86868B] uppercase tracking-wider block mb-1">
                       O elegir de la galería del restaurante:
                     </span>
                     <div className="flex flex-wrap gap-1.5">
@@ -1831,10 +1827,10 @@ export default function AdminDashboard({ onExit }) {
                           key={pIdx}
                           type="button"
                           onClick={() => setEditingDish({ ...editingDish, imagen_url: preset.url })}
-                          className={`text-[10px] px-2 py-1 rounded-xs border cursor-pointer transition-colors ${
+                          className={`text-[11px] px-2.5 py-1 rounded-full border cursor-pointer transition-colors ${
                             editingDish.imagen_url === preset.url
-                              ? 'bg-[#6E1B24] text-white border-[#6E1B24]'
-                              : 'bg-white hover:bg-[#EAE3D6] text-[#4A423C] border-[#DDD5C7]'
+                              ? 'bg-[#0071E3] text-white border-[#0071E3]'
+                              : 'bg-white hover:bg-black/5 text-[#1D1D1F] border-black/10'
                           }`}
                         >
                           {preset.label}
@@ -1846,35 +1842,35 @@ export default function AdminDashboard({ onExit }) {
               </div>
 
               {/* Disponibilidad */}
-              <div className="flex items-center gap-2 pt-1 bg-[#FAF7F2] p-2.5 border border-[#E8DFCFC0] rounded-xs">
+              <div className="flex items-center gap-2.5 p-3 bg-[#F5F5F7] rounded-xl border border-black/[0.04]">
                 <input
                   type="checkbox"
                   id="disponibleCheck"
                   checked={editingDish.disponible !== false}
                   onChange={(e) => setEditingDish({ ...editingDish, disponible: e.target.checked })}
-                  className="w-4 h-4 text-[#1A382B] rounded-xs cursor-pointer accent-[#1A382B]"
+                  className="w-4 h-4 rounded-md cursor-pointer accent-[#0071E3]"
                 />
-                <label htmlFor="disponibleCheck" className="text-xs text-[#2C2623] cursor-pointer font-medium select-none">
+                <label htmlFor="disponibleCheck" className="text-xs text-[#1D1D1F] cursor-pointer font-medium select-none">
                   Disponible de inmediato en la carta web y comandero POS de mesas
                 </label>
               </div>
 
               {/* Acciones */}
-              <div className="pt-4 border-t border-[#EAE3D6] flex items-center justify-end gap-2.5">
+              <div className="pt-4 border-t border-black/[0.06] flex items-center justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setEditingDish(null)}
-                  className="px-4 py-2 text-xs uppercase tracking-wider font-semibold text-[#6B635E] hover:bg-[#F2ECE1] rounded-xs transition-colors cursor-pointer"
+                  className="px-4 py-2 text-xs font-medium text-[#86868B] hover:text-[#1D1D1F] hover:bg-black/5 rounded-full transition-colors cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={savingDish}
-                  className="px-5 py-2 text-xs uppercase tracking-wider font-bold bg-[#6E1B24] hover:bg-[#58131B] text-white rounded-xs transition-colors cursor-pointer shadow-sm flex items-center gap-1.5 disabled:opacity-50"
+                  className="px-5 py-2 text-xs font-semibold bg-[#0071E3] hover:bg-[#0077ED] text-white rounded-full transition-all cursor-pointer shadow-xs flex items-center gap-1.5 disabled:opacity-50 active:scale-[0.98]"
                 >
                   <Save size={13} />
-                  {savingDish ? 'Guardando...' : 'Guardar Platillo & Precio'}
+                  {savingDish ? 'Guardando...' : 'Guardar Platillo'}
                 </button>
               </div>
             </form>
