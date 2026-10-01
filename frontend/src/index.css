@@ -1,0 +1,52 @@
+@import "tailwindcss";
+
+:root {
+  --font-serif: 'Cormorant Garamond', Garamond, 'Playfair Display', Georgia, serif;
+  --font-sans: 'Montserrat', sans-serif;
+
+  /* Paleta Clásica & Elegante Italiana */
+  --color-cream: #FAF7F2;
+  --color-cream-card: #FFFFFF;
+  --color-burgundy: #6E1B24;
+  --color-burgundy-dark: #4A0E15;
+  --color-forest: #1A382B;
+  --color-forest-dark: #10241B;
+  --color-gold: #B88E3E;
+  --color-gold-muted: #D4B26F;
+  --color-charcoal: #221E1C;
+  --color-warm-gray: #6B635E;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background-color: var(--color-cream);
+  color: var(--color-charcoal);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.font-serif-luxury {
+  font-family: var(--font-serif);
+}
+
+.font-sans-clean {
+  font-family: var(--font-sans);
+}
+
+/* Delgada línea tricolor italiana artesanal */
+.italian-tricolor-line {
+  height: 2px;
+  background: linear-gradient(90deg, #1A382B 0%, #1A382B 33.3%, #FAF7F2 33.3%, #FAF7F2 66.6%, #6E1B24 66.6%, #6E1B24 100%);
+}
+
+/* Filo dorado sutil */
+.gold-hairline {
+  border-color: rgba(184, 142, 62, 0.28);
+}
+
+/* Efecto papel o lino editorial */
+.paper-shadow {
+  box-shadow: 0 10px 40px -15px rgba(34, 30, 28, 0.08);
+}

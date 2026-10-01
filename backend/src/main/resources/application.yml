@@ -1,0 +1,35 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: nexo-backend
+
+  datasource:
+    # URL de Supabase para tu proyecto (todvvydnyaieakrxrymr)
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://db.todvvydnyaieakrxrymr.supabase.co:5432/postgres?sslmode=require}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:#P3opuest4202.7@}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 1
+      idle-timeout: 30000
+      connection-timeout: 20000
+
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+# Configuración personalizada de la aplicación
+app:
+  supabase:
+    url: https://todvvydnyaieakrxrymr.supabase.co
+    anon-key: sb_publishable_Fdyk-F_My76JU0N7SoMcjw_a7DS-gnt
+  cors:
+    allowed-origins: "http://localhost:5173,http://localhost:3000"
