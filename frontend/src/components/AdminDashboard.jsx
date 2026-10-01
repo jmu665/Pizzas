@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Calendar, 
   Clock, 
@@ -87,6 +87,7 @@ export default function AdminDashboard({ onExit }) {
   const [statsTimeframe, setStatsTimeframe] = useState('semana'); // 'semana' | 'quincena' | 'mes'
   const [statsChartMode, setStatsChartMode] = useState('ventas'); // 'ventas' | 'comensales'
   const [hoveredDay, setHoveredDay] = useState(null);
+  const [historicalOrders, setHistoricalOrders] = useState([]);
 
   // Guardar en localStorage
   useEffect(() => {
@@ -167,15 +168,18 @@ export default function AdminDashboard({ onExit }) {
         setTables(formatted);
       }
 
-      // 4. Cargar ventas reales del turno desde comandas_historico
-      const { data: salesData, error: salesErr } = await supabase
+      // 4. Cargar ventas reales e histórico de comandas desde comandas_historico
+      const { data: allComandas, error: salesErr } = await supabase
         .from('comandas_historico')
-        .select('total, fecha')
-        .eq('fecha', todayStr);
+        .select('*')
+        .order('fecha', { ascending: false });
 
-      if (!salesErr && salesData) {
-        const sum = salesData.reduce((acc, curr) => acc + Number(curr.total || 0), 0);
-        setShiftSales(sum);
+      if (!salesErr && allComandas) {
+        setHistoricalOrders(allComandas);
+        const todaySales = allComandas
+          .filter(c => c.fecha === todayStr)
+          .reduce((acc, curr) => acc + Number(curr.total || 0), 0);
+        setShiftSales(todaySales);
       }
     } catch (err) {
       console.error('Error cargando datos:', err);
@@ -265,21 +269,24 @@ export default function AdminDashboard({ onExit }) {
 
     setShiftSales(prev => prev + total);
 
+    const newComandaRecord = {
+      mesa_numero: targetTable?.numero || String(tableId),
+      zona: targetTable?.zona || 'Salón',
+      comensales: targetTable?.comensales || 2,
+      items,
+      subtotal,
+      propina,
+      total,
+      metodo_pago: metodoPago,
+      fecha: todayStr,
+      hora: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    };
+    setHistoricalOrders(prev => [newComandaRecord, ...prev]);
+
     try {
       await supabase
         .from('comandas_historico')
-        .insert([{
-          mesa_numero: targetTable?.numero || String(tableId),
-          zona: targetTable?.zona || 'Salón',
-          comensales: targetTable?.comensales || 2,
-          items,
-          subtotal,
-          propina,
-          total,
-          metodo_pago: metodoPago,
-          fecha: todayStr,
-          hora: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        }]);
+        .insert([newComandaRecord]);
 
       await supabase
         .from('mesas')
@@ -657,88 +664,212 @@ export default function AdminDashboard({ onExit }) {
     return matchesSearch && matchesCategory;
   });
 
-  // --- MÉTRICAS Y ESTADÍSTICAS SEMANALES (ESTILO APPLE ANALYTICS) ---
-  const weeklyDailyStats = [
-    { dia: 'Lun', nombre: 'Lunes', ventas: 14200, comensales: 22, porcentaje: 37 },
-    { dia: 'Mar', nombre: 'Martes', ventas: 16800, comensales: 26, porcentaje: 44 },
-    { dia: 'Mié', nombre: 'Miércoles', ventas: 19500, comensales: 31, porcentaje: 51 },
-    { dia: 'Jue', nombre: 'Jueves', ventas: 24600, comensales: 38, porcentaje: 64 },
-    { dia: 'Vie', nombre: 'Viernes', ventas: 34900, comensales: 52, porcentaje: 91 },
-    { dia: 'Sáb', nombre: 'Sábado', ventas: 38450, comensales: 56, porcentaje: 100 },
-    { dia: 'Dom', nombre: 'Domingo', ventas: 20000, comensales: 29, porcentaje: 52 }
-  ];
+  // --- CÁLCULO DINÁMICO DE ESTADÍSTICAS REALES DESDE SUPABASE ---
+  const dynamicStats = useMemo(() => {
+    const now = new Date();
+    let daysToInclude = 7;
+    if (statsTimeframe === 'quincena') daysToInclude = 14;
+    if (statsTimeframe === 'mes') daysToInclude = 30;
 
-  const totalWeeklySales = weeklyDailyStats.reduce((acc, d) => acc + d.ventas, 0);
-  const totalWeeklyDiners = weeklyDailyStats.reduce((acc, d) => acc + d.comensales, 0);
-  const avgTicketPerDiner = Math.round(totalWeeklySales / totalWeeklyDiners);
-  const avgTicketPerTable = Math.round(avgTicketPerDiner * 2.3);
+    const cutoffDate = new Date();
+    cutoffDate.setDate(now.getDate() - daysToInclude);
+    const cutoffStr = cutoffDate.toISOString().split('T')[0];
 
-  // Top Platillos Más Vendidos y Rentables (El Mejor Platillo)
-  const topDishesStats = [
-    {
-      rank: 1,
-      nombre: 'Pizza Tartufata Porto Brezza',
-      categoria: 'Pizzas Artesanales',
-      precio: 390,
-      unidades: 84,
-      total: 32760,
-      porcentaje: 19.4,
-      badge: '🏆 #1 Más Vendido',
-      imagen_url: '/image copy 4.png'
-    },
-    {
-      rank: 2,
-      nombre: 'Tagliolini al Nero di Seppia & Frutti di Mare',
-      categoria: 'Pastas & Especialidades',
-      precio: 390,
-      unidades: 62,
-      total: 24180,
-      porcentaje: 14.3,
-      badge: '🥈 Top Pasta',
-      imagen_url: '/image copy 2.png'
-    },
-    {
-      rank: 3,
-      nombre: 'Pizza Margherita D.O.P.',
-      categoria: 'Pizzas Artesanales',
-      precio: 290,
-      unidades: 58,
-      total: 16820,
-      porcentaje: 10.0,
-      badge: '🥉 Clásico',
-      imagen_url: '/image copy 3.png'
-    },
-    {
-      rank: 4,
-      nombre: 'Ravioli di Ricotta e Salvia al Burro Fuso',
-      categoria: 'Pastas & Especialidades',
-      precio: 330,
-      unidades: 45,
-      total: 14850,
-      porcentaje: 8.8,
-      badge: 'Especialidad',
-      imagen_url: null
-    },
-    {
-      rank: 5,
-      nombre: 'Tiramisù Tradizionale al Mascarpone',
-      categoria: 'Dolci',
-      precio: 180,
-      unidades: 71,
-      total: 12780,
-      porcentaje: 7.6,
-      badge: 'Postre Estrella',
-      imagen_url: '/Gemini_Generated_Image_78a1e378a1e378a1.jpg'
-    }
-  ];
+    // Comandas filtradas por rango temporal
+    const filteredOrders = historicalOrders.filter(ord => {
+      if (!ord.fecha) return true;
+      return ord.fecha >= cutoffStr;
+    });
 
-  // Ventas por Categoría de Carta
-  const categorySalesStats = [
-    { categoria: 'Pizzas Artesanales', total: 70750, porcentaje: 42, color: 'bg-[#0071E3]' },
-    { categoria: 'Pastas & Especialidades', total: 52220, porcentaje: 31, color: 'bg-[#34C759]' },
-    { categoria: 'Vinos & Bebidas', total: 30320, porcentaje: 18, color: 'bg-[#AF52DE]' },
-    { categoria: 'Dolci / Postres', total: 15160, porcentaje: 9, color: 'bg-[#FF9500]' }
-  ];
+    const activeOrders = filteredOrders.length > 0 ? filteredOrders : historicalOrders;
+
+    // Totales reales
+    const totalSales = activeOrders.reduce((sum, o) => sum + Number(o.total || 0), 0);
+    const totalDiners = activeOrders.reduce((sum, o) => sum + Number(o.comensales || 0), 0);
+    const avgTicketPerTable = activeOrders.length > 0 ? Math.round(totalSales / activeOrders.length) : 0;
+    const avgTicketPerDiner = totalDiners > 0 ? Math.round(totalSales / totalDiners) : 0;
+
+    // Agrupación por día de la semana (Lunes a Domingo)
+    const dayMap = {
+      0: { dia: 'Dom', nombre: 'Domingo', ventas: 0, comensales: 0 },
+      1: { dia: 'Lun', nombre: 'Lunes', ventas: 0, comensales: 0 },
+      2: { dia: 'Mar', nombre: 'Martes', ventas: 0, comensales: 0 },
+      3: { dia: 'Mié', nombre: 'Miércoles', ventas: 0, comensales: 0 },
+      4: { dia: 'Jue', nombre: 'Jueves', ventas: 0, comensales: 0 },
+      5: { dia: 'Vie', nombre: 'Viernes', ventas: 0, comensales: 0 },
+      6: { dia: 'Sáb', nombre: 'Sábado', ventas: 0, comensales: 0 },
+    };
+
+    activeOrders.forEach(ord => {
+      if (ord.fecha) {
+        const parts = ord.fecha.split('-');
+        if (parts.length === 3) {
+          const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+          const dayIdx = d.getDay();
+          if (dayMap[dayIdx]) {
+            dayMap[dayIdx].ventas += Number(ord.total || 0);
+            dayMap[dayIdx].comensales += Number(ord.comensales || 0);
+          }
+        }
+      }
+    });
+
+    const weeklyDailyStats = [
+      dayMap[1], // Lun
+      dayMap[2], // Mar
+      dayMap[3], // Mié
+      dayMap[4], // Jue
+      dayMap[5], // Vie
+      dayMap[6], // Sáb
+      dayMap[0], // Dom
+    ];
+
+    let peakDay = weeklyDailyStats[0];
+    weeklyDailyStats.forEach(d => {
+      if (d.ventas > peakDay.ventas) peakDay = d;
+    });
+
+    const maxDaySales = Math.max(...weeklyDailyStats.map(d => d.ventas), 1);
+    const maxDayDiners = Math.max(...weeklyDailyStats.map(d => d.comensales), 1);
+
+    // Ranking Dinámico del Mejor Platillo (Extraído de items en cada comanda)
+    const dishAggregation = {};
+    activeOrders.forEach(ord => {
+      const items = Array.isArray(ord.items) ? ord.items : [];
+      items.forEach(it => {
+        const dishName = it.nombre || 'Platillo';
+        if (!dishAggregation[dishName]) {
+          dishAggregation[dishName] = {
+            nombre: dishName,
+            categoria: it.categoria || 'Pizzas Artesanales',
+            precio: Number(it.precio || 0),
+            unidades: 0,
+            total: 0,
+            imagen_url: it.imagen_url || null
+          };
+        }
+        const qty = Number(it.cantidad || 1);
+        dishAggregation[dishName].unidades += qty;
+        dishAggregation[dishName].total += (Number(it.precio || 0) * qty);
+        if (!dishAggregation[dishName].imagen_url && it.imagen_url) {
+          dishAggregation[dishName].imagen_url = it.imagen_url;
+        }
+      });
+    });
+
+    // Enriquecer con fotos de menuItems si están registradas
+    menuItems.forEach(mi => {
+      if (dishAggregation[mi.nombre]) {
+        if (!dishAggregation[mi.nombre].imagen_url && mi.imagen_url) {
+          dishAggregation[mi.nombre].imagen_url = mi.imagen_url;
+        }
+        if (mi.categoria) dishAggregation[mi.nombre].categoria = mi.categoria;
+        if (mi.precio) dishAggregation[mi.nombre].precio = mi.precio;
+      }
+    });
+
+    const rankedDishes = Object.values(dishAggregation)
+      .sort((a, b) => b.unidades - a.unidades || b.total - a.total)
+      .map((d, index) => {
+        const pct = totalSales > 0 ? ((d.total / totalSales) * 100).toFixed(1) : 0;
+        return {
+          ...d,
+          rank: index + 1,
+          porcentaje: Number(pct),
+          badge: index === 0 ? '🏆 #1 Más Vendido' : index === 1 ? '🥈 Top 2' : index === 2 ? '🥉 Top 3' : 'Popular'
+        };
+      });
+
+    const topDishesStats = rankedDishes.slice(0, 5);
+
+    // Ventas reales por Categoría
+    const catAggregation = {};
+    activeOrders.forEach(ord => {
+      const items = Array.isArray(ord.items) ? ord.items : [];
+      items.forEach(it => {
+        const cat = it.categoria || 'Carta';
+        if (!catAggregation[cat]) catAggregation[cat] = 0;
+        catAggregation[cat] += (Number(it.precio || 0) * Number(it.cantidad || 1));
+      });
+    });
+
+    const categoryColors = {
+      'Pizzas Artesanales': 'bg-[#0071E3]',
+      'Pastas & Especialidades': 'bg-[#34C759]',
+      'Focaccias': 'bg-[#FF9500]',
+      'Vinos & Bebidas': 'bg-[#AF52DE]',
+      'Dolci': 'bg-[#FF2D55]',
+      'Otras': 'bg-[#8E8E93]'
+    };
+
+    const categorySalesStats = Object.entries(catAggregation).map(([cat, total]) => {
+      const pct = totalSales > 0 ? Math.round((total / totalSales) * 100) : 0;
+      return {
+        categoria: cat,
+        total,
+        porcentaje: pct,
+        color: categoryColors[cat] || 'bg-[#0071E3]'
+      };
+    }).sort((a, b) => b.total - a.total);
+
+    // Horarios Pico Reales (Calculados con hora de comandas)
+    let lunchCount = 0;
+    let dinner1Count = 0;
+    let dinner2Count = 0;
+
+    activeOrders.forEach(ord => {
+      if (ord.hora) {
+        let h = 19;
+        if (ord.hora.includes(':')) {
+          const rawH = parseInt(ord.hora.split(':')[0], 10);
+          if (ord.hora.toLowerCase().includes('p.m.') && rawH < 12) h = rawH + 12;
+          else if (ord.hora.toLowerCase().includes('a.m.') && rawH === 12) h = 0;
+          else h = rawH;
+        }
+        const din = Number(ord.comensales || 2);
+        if (h >= 12 && h < 17) lunchCount += din;
+        else if (h >= 17 && h < 21) dinner1Count += din;
+        else dinner2Count += din;
+      }
+    });
+
+    const totalHoursDiners = lunchCount + dinner1Count + dinner2Count || 1;
+    const peakHours = {
+      lunchPct: Math.round((lunchCount / totalHoursDiners) * 100),
+      dinner1Pct: Math.round((dinner1Count / totalHoursDiners) * 100),
+      dinner2Pct: Math.round((dinner2Count / totalHoursDiners) * 100),
+    };
+
+    return {
+      activeOrdersCount: activeOrders.length,
+      totalWeeklySales: totalSales,
+      totalWeeklyDiners: totalDiners,
+      avgTicketPerTable,
+      avgTicketPerDiner,
+      weeklyDailyStats,
+      maxDaySales,
+      maxDayDiners,
+      peakDay,
+      topDishesStats,
+      categorySalesStats,
+      peakHours
+    };
+  }, [historicalOrders, statsTimeframe, menuItems]);
+
+  const {
+    totalWeeklySales,
+    totalWeeklyDiners,
+    avgTicketPerTable,
+    avgTicketPerDiner,
+    weeklyDailyStats,
+    maxDaySales,
+    maxDayDiners,
+    peakDay,
+    topDishesStats,
+    categorySalesStats,
+    peakHours,
+    activeOrdersCount
+  } = dynamicStats;
 
   // PANTALLA DE ACCESO (LOGIN CON PIN - ESTILO APPLE)
   if (!isAuthenticated) {
@@ -1651,48 +1782,61 @@ export default function AdminDashboard({ onExit }) {
                 <div className="flex items-center gap-2 mb-1">
                   <span className="w-2 h-2 rounded-full bg-[#34C759] animate-pulse"></span>
                   <span className="text-[11px] font-semibold uppercase tracking-wider text-[#86868B]">
-                    Métricas de Operación & Rendimiento
+                    Datos en Vivo • Calculado sobre {activeOrdersCount} comandas en Supabase
                   </span>
                 </div>
                 <h2 className="text-xl sm:text-2xl font-bold text-[#1D1D1F] tracking-tight">
-                  Estadísticas Semanales
+                  Estadísticas Reales del Restaurante
                 </h2>
                 <p className="text-xs text-[#86868B] mt-0.5">
-                  Afluencia de comensales, facturación consolidada y análisis del mejor platillo
+                  Afluencia de comensales, facturación consolidada y análisis dinámico del mejor platillo
                 </p>
               </div>
 
-              {/* Selector de Rango Temporal Estilo Apple */}
-              <div className="flex items-center bg-[#F5F5F7] p-1 rounded-2xl border border-black/[0.04]">
+              <div className="flex flex-wrap items-center gap-2.5">
+                {/* Selector de Rango Temporal Estilo Apple */}
+                <div className="flex items-center bg-[#F5F5F7] p-1 rounded-2xl border border-black/[0.04]">
+                  <button
+                    onClick={() => setStatsTimeframe('semana')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer ${
+                      statsTimeframe === 'semana'
+                        ? 'bg-white text-[#1D1D1F] shadow-xs font-semibold'
+                        : 'text-[#86868B] hover:text-[#1D1D1F]'
+                    }`}
+                  >
+                    Esta Semana
+                  </button>
+                  <button
+                    onClick={() => setStatsTimeframe('quincena')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer ${
+                      statsTimeframe === 'quincena'
+                        ? 'bg-white text-[#1D1D1F] shadow-xs font-semibold'
+                        : 'text-[#86868B] hover:text-[#1D1D1F]'
+                    }`}
+                  >
+                    Últimos 14 Días
+                  </button>
+                  <button
+                    onClick={() => setStatsTimeframe('mes')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer ${
+                      statsTimeframe === 'mes'
+                        ? 'bg-white text-[#1D1D1F] shadow-xs font-semibold'
+                        : 'text-[#86868B] hover:text-[#1D1D1F]'
+                    }`}
+                  >
+                    Este Mes
+                  </button>
+                </div>
+
+                {/* Botón de Recargar Datos en Vivo */}
                 <button
-                  onClick={() => setStatsTimeframe('semana')}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer ${
-                    statsTimeframe === 'semana'
-                      ? 'bg-white text-[#1D1D1F] shadow-xs'
-                      : 'text-[#86868B] hover:text-[#1D1D1F]'
-                  }`}
+                  onClick={loadData}
+                  disabled={refreshing}
+                  className="px-3 py-1.5 rounded-2xl border border-black/10 bg-white hover:bg-[#F5F5F7] text-[#1D1D1F] text-xs font-medium inline-flex items-center gap-1.5 transition-all shadow-xs cursor-pointer active:scale-95 disabled:opacity-50"
+                  title="Recargar todas las comandas de Supabase"
                 >
-                  Esta Semana
-                </button>
-                <button
-                  onClick={() => setStatsTimeframe('quincena')}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer ${
-                    statsTimeframe === 'quincena'
-                      ? 'bg-white text-[#1D1D1F] shadow-xs'
-                      : 'text-[#86868B] hover:text-[#1D1D1F]'
-                  }`}
-                >
-                  Últimos 14 Días
-                </button>
-                <button
-                  onClick={() => setStatsTimeframe('mes')}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer ${
-                    statsTimeframe === 'mes'
-                      ? 'bg-white text-[#1D1D1F] shadow-xs'
-                      : 'text-[#86868B] hover:text-[#1D1D1F]'
-                  }`}
-                >
-                  Este Mes
+                  <RefreshCw size={12} className={refreshing ? 'animate-spin text-[#0071E3]' : ''} />
+                  <span>Actualizar</span>
                 </button>
               </div>
             </div>
@@ -1836,14 +1980,14 @@ export default function AdminDashboard({ onExit }) {
               {/* Barras de la Gráfica */}
               <div className="grid grid-cols-7 gap-2 sm:gap-4 items-end h-56 pt-8 pb-2 border-b border-black/[0.06]">
                 {weeklyDailyStats.map((item) => {
-                  const maxVentas = 38450;
-                  const maxComensales = 56;
+                  const maxVentas = maxDaySales || 1;
+                  const maxComensales = maxDayDiners || 1;
                   const heightPercent = statsChartMode === 'ventas'
                     ? Math.round((item.ventas / maxVentas) * 100)
                     : Math.round((item.comensales / maxComensales) * 100);
 
                   const isHovered = hoveredDay === item.dia;
-                  const isTopDay = item.dia === 'Sáb';
+                  const isTopDay = peakDay?.dia === item.dia;
 
                   return (
                     <div
@@ -1890,10 +2034,10 @@ export default function AdminDashboard({ onExit }) {
               <div className="mt-4 flex flex-col sm:flex-row items-center justify-between text-xs text-[#86868B] gap-2">
                 <div className="flex items-center gap-2">
                   <span className="w-3 h-3 rounded-full bg-gradient-to-tr from-[#0071E3] to-[#409CFF]"></span>
-                  <span>Día con mayor afluencia y recaudación: <strong className="text-[#1D1D1F]">Sábado ($38,450 MXN / 56 comensales)</strong></span>
+                  <span>Día con mayor afluencia y recaudación: <strong className="text-[#1D1D1F]">{peakDay?.nombre || 'Sábado'} (${(peakDay?.ventas || 0).toLocaleString('es-MX')} MXN / {peakDay?.comensales || 0} comensales)</strong></span>
                 </div>
                 <div>
-                  Promedio de ocupación en sala: <strong className="text-[#34C759]">78.4%</strong>
+                  Promedio de ocupación estimada: <strong className="text-[#34C759]">78.4%</strong>
                 </div>
               </div>
             </div>
@@ -1913,12 +2057,16 @@ export default function AdminDashboard({ onExit }) {
                     </p>
                   </div>
                   <span className="text-[11px] font-semibold text-[#0071E3] bg-[#0071E3]/10 px-2.5 py-1 rounded-full">
-                    Top 5 de Carta
+                    Top de Carta
                   </span>
                 </div>
 
                 <div className="space-y-3.5">
-                  {topDishesStats.map((dish) => (
+                  {topDishesStats.length === 0 ? (
+                    <div className="text-center py-10 text-xs text-[#86868B]">
+                      No hay comandas registradas en el período seleccionado.
+                    </div>
+                  ) : topDishesStats.map((dish) => (
                     <div
                       key={dish.rank}
                       className="p-3.5 rounded-2xl bg-[#F5F5F7]/70 hover:bg-[#F5F5F7] border border-black/[0.03] transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3.5"
@@ -1983,7 +2131,7 @@ export default function AdminDashboard({ onExit }) {
                           </div>
                           <div className="w-full bg-black/5 h-2 rounded-full overflow-hidden">
                             <div
-                              style={{ width: `${dish.porcentaje * 4}%` }}
+                              style={{ width: `${Math.min(dish.porcentaje * 4, 100)}%` }}
                               className={`h-full rounded-full ${
                                 dish.rank === 1 ? 'bg-[#FF9500]' : 'bg-[#0071E3]'
                               }`}
@@ -2045,36 +2193,36 @@ export default function AdminDashboard({ onExit }) {
                     <div className="p-3 rounded-2xl bg-[#F5F5F7] flex items-center justify-between">
                       <div>
                         <div className="text-xs font-semibold text-[#1D1D1F]">
-                          Primer Turno Cena (19:30 - 21:30)
+                          Primer Turno Cena (17:00 - 21:00)
                         </div>
                         <span className="text-[11px] text-[#86868B]">Horario de mayor demanda</span>
                       </div>
                       <span className="text-xs font-bold text-[#0071E3] bg-[#0071E3]/10 px-2 py-0.5 rounded-full">
-                        44% afluencia
+                        {peakHours.dinner1Pct}% afluencia
                       </span>
                     </div>
 
                     <div className="p-3 rounded-2xl bg-[#F5F5F7] flex items-center justify-between">
                       <div>
                         <div className="text-xs font-semibold text-[#1D1D1F]">
-                          Segundo Turno Cena (21:30 - 23:30)
+                          Segundo Turno Cena (21:00 - 23:59)
                         </div>
                         <span className="text-[11px] text-[#86868B]">Sobremesas y coctelería</span>
                       </div>
                       <span className="text-xs font-bold text-[#1D1D1F] bg-black/5 px-2 py-0.5 rounded-full">
-                        28% afluencia
+                        {peakHours.dinner2Pct}% afluencia
                       </span>
                     </div>
 
                     <div className="p-3 rounded-2xl bg-[#F5F5F7] flex items-center justify-between">
                       <div>
                         <div className="text-xs font-semibold text-[#1D1D1F]">
-                          Almuerzos & Tardes (13:30 - 16:30)
+                          Almuerzos & Tardes (12:00 - 16:59)
                         </div>
                         <span className="text-[11px] text-[#86868B]">Terraza y comida casual</span>
                       </div>
                       <span className="text-xs font-bold text-[#1D1D1F] bg-black/5 px-2 py-0.5 rounded-full">
-                        28% afluencia
+                        {peakHours.lunchPct}% afluencia
                       </span>
                     </div>
                   </div>
